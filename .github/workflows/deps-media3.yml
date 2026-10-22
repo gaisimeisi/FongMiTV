@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       media_ref:
-        description: 'FongMi/media 的分支或 commit（默认 release）'
+        description: 'FongMi/media 的分支（必须用 release-1.11.0-fongmi，官方 release 分支缺自研模块）'
         required: false
-        default: 'release'
+        default: 'release-1.11.0-fongmi'
       commit:
         description: '编完自动提交 aar 到 app/libs/'
         type: boolean
@@ -96,18 +96,36 @@ jobs:
             :lib-extractor:assembleRelease \
             :lib-effect:assembleRelease \
             :lib-ui:assembleRelease \
-            :lib-session:assembleRelease
+            :lib-session:assembleRelease \
+            :lib-mpvplayer:assembleRelease \
+            :lib-ui-danmaku:assembleRelease
 
       - name: Collect aars
         run: |
           mkdir -p out
-          find media/libraries -path "*/outputs/aar/*.aar" -type f -exec cp {} out/ \;
+          # media3 的 lib-mpvplayer / lib-decoder-ffmpeg 模块输岀名会和 native aar 撞名，
+          # 统一加 media3- 前缀避免覆盖（TV 用 fileTree 引入，名字无所谓）
+          find media/libraries -path "*/outputs/aar/*.aar" -type f | while read -r f; do
+            base=$(basename "$f")
+            case "$base" in
+              lib-mpvplayer-release.aar|lib-decoder-ffmpeg-release.aar)
+                base="media3-$base" ;;
+            esac
+            cp "$f" "out/$base"
+          done
           echo "=== 收集到的 aar ==="
           ls -lh out/
           COUNT=$(ls -1 out/*.aar 2>/dev/null | wc -l)
           echo "共 $COUNT 个 aar" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$COUNT" -lt 10 ]; then
-            echo "::error::只收集到 $COUNT 个 aar，少于预期的 12 个，请检查模块名是否变化"
+          # 关键扩展包必须存在
+          for must in mpvplayer danmaku; do
+            if ! ls out/*"$must"*.aar >/dev/null 2>&1; then
+              echo "::error::缺少 $must 的 aar —— 检查 media_ref 是否用了 release-1.11.0-fongmi 分支"
+              exit 1
+            fi
+          done
+          if [ "$COUNT" -lt 13 ]; then
+            echo "::error::只收集到 $COUNT 个 aar，少于预期的 14 个，检查模块名"
             exit 1
           fi
 
