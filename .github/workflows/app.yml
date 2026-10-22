@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: 'Gradle 任务'
+        description: 'Gradle 任务（ABI 由 splits 处理，不要写成 leanbackArm64Debug）'
         required: false
-        default: ':app:assembleLeanbackArm64Debug'
+        default: ':app:assembleLeanbackDebug'
       artifact_name:
         description: '上传的 artifact 名'
         required: false
