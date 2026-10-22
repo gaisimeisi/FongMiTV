@@ -48,11 +48,27 @@ jobs:
           java-version: '17'
           distribution: temurin
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Ensure Android platform 36
+        run: |
+          # runner 自带 Android SDK，不再用 setup-android@v3
+          # （v3 会尝试 sdkmanager "tools"，新版 cmdline-tools 已移除该包，必失败）
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          echo "SDK = $SDK"
+          echo "--- 已有 platforms ---"
+          ls "$SDK/platforms" 2>/dev/null || echo "(空)"
 
-      - name: Install platform 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" || sdkmanager "platforms;android-36"
+          SM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
+          echo "sdkmanager = $SM"
+
+          if ! ls "$SDK/platforms" 2>/dev/null | grep -q "android-36"; then
+            echo "安装 android-36 ..."
+            yes 2>/dev/null | "$SM" --licenses > /dev/null 2>&1 || true
+            "$SM" "platforms;android-36" 2>&1 | tail -5 \
+              || echo "::warning::android-36 安装失败，尝试沿用已有平台"
+          else
+            echo "android-36 已存在"
+          fi
+          ls "$SDK/platforms"
 
       - name: Gradle cache
         uses: actions/cache@v4
