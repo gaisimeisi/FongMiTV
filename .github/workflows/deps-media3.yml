@@ -119,11 +119,19 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Checkout this repo (for committing)
+        if: ${{ inputs.commit }}
+        uses: actions/checkout@v4
+        with:
+          path: self
+          clean: false
+
       - name: Commit aars into app/libs
         if: ${{ inputs.commit }}
+        working-directory: self
         run: |
           mkdir -p app/libs
-          cp out/*.aar app/libs/
+          cp ../out/*.aar app/libs/
           git config user.name  "deps-bot"
           git config user.email "deps-bot@users.noreply.github.com"
           # -f 是因为 app/libs/.gitignore 里有 lib-*.aar 规则
@@ -131,7 +139,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "aar 无变化，跳过提交"
           else
-            git commit -m "deps(media3): add $(ls out/*.aar | wc -l) aars built from FongMi/media@${{ inputs.media_ref || 'release' }}"
+            git commit -m "deps(media3): add $(ls ../out/*.aar | wc -l) aars built from FongMi/media@${{ inputs.media_ref || 'release' }}"
             git push
-            echo "::notice::已提交 $(ls out/*.aar | wc -l) 个 aar 到 app/libs/"
+            echo "::notice::已提交 $(ls ../out/*.aar | wc -l) 个 aar 到 app/libs/"
           fi
