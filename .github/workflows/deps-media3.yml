@@ -1,0 +1,121 @@
+name: deps-media3
+
+# 用途：从 FongMi/media 编译出 12 个 media3 模块的 aar
+# 触发：手动（Actions 页面点 Run workflow）
+# 产出：artifact "media3-aars" —— 下载后解压到 app/libs/
+#
+# 为什么单独一条流水线：
+#   media3 编译约 5-10 分钟，只在依赖升级时需要跑一次。
+#   日常改 UI 走 app.yml，不碰这里。
+
+on:
+  workflow_dispatch:
+    inputs:
+      media_ref:
+        description: 'FongMi/media 的分支或 commit（默认 release）'
+        required: false
+        default: 'release'
+      commit:
+        description: '编完自动提交 aar 到 app/libs/'
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-media3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout FongMi/media
+        uses: actions/checkout@v4
+        with:
+          repository: FongMi/media
+          ref: ${{ inputs.media_ref || 'release' }}
+          path: media
+
+      - name: Record source revision
+        run: |
+          cd media
+          echo "media commit: $(git rev-parse HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install platform 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" || sdkmanager "platforms;android-36"
+
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: media3-gradle-${{ hashFiles('media/gradle/libs.versions.toml') }}
+          restore-keys: media3-gradle-
+
+      - name: Build media3 modules
+        working-directory: media
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace \
+            -x lint -x test \
+            :lib-common:assembleRelease \
+            :lib-exoplayer:assembleRelease \
+            :lib-exoplayer-dash:assembleRelease \
+            :lib-exoplayer-hls:assembleRelease \
+            :lib-exoplayer-rtsp:assembleRelease \
+            :lib-datasource:assembleRelease \
+            :lib-datasource-okhttp:assembleRelease \
+            :lib-database:assembleRelease \
+            :lib-extractor:assembleRelease \
+            :lib-effect:assembleRelease \
+            :lib-ui:assembleRelease \
+            :lib-session:assembleRelease
+
+      - name: Collect aars
+        run: |
+          mkdir -p out
+          find media/libraries -path "*/outputs/aar/*.aar" -type f -exec cp {} out/ \;
+          echo "=== 收集到的 aar ==="
+          ls -lh out/
+          COUNT=$(ls -1 out/*.aar 2>/dev/null | wc -l)
+          echo "共 $COUNT 个 aar" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$COUNT" -lt 10 ]; then
+            echo "::error::只收集到 $COUNT 个 aar，少于预期的 12 个，请检查模块名是否变化"
+            exit 1
+          fi
+
+      - name: Upload aars
+        uses: actions/upload-artifact@v4
+        with:
+          name: media3-aars
+          path: out/*.aar
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Commit aars into app/libs
+        if: ${{ inputs.commit }}
+        run: |
+          mkdir -p app/libs
+          cp out/*.aar app/libs/
+          git config user.name  "deps-bot"
+          git config user.email "deps-bot@users.noreply.github.com"
+          # -f 是因为 app/libs/.gitignore 里有 lib-*.aar 规则
+          git add -f app/libs/*.aar
+          if git diff --cached --quiet; then
+            echo "aar 无变化，跳过提交"
+          else
+            git commit -m "deps(media3): add $(ls out/*.aar | wc -l) aars built from FongMi/media@${{ inputs.media_ref || 'release' }}"
+            git push
+            echo "::notice::已提交 $(ls out/*.aar | wc -l) 个 aar 到 app/libs/"
+          fi
