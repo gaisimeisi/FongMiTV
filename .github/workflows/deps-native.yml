@@ -1,0 +1,237 @@
+name: deps-native
+
+# 用途：自动从官方发布物提取 native so，构造 TV 工程 verify 校验所需的两个 aar：
+#   app/libs/lib-decoder-ffmpeg-release.aar   ← 主 APK（leanback-*.apk）里提取
+#   app/libs/lib-mpvplayer-release.aar        ← 运行时模块 APK（runtime-mpv-*.apk）里提取
+#
+# 为什么这样做：
+#   官方源码 clone 下来是编不过的——lib-*.aar 被 .gitignore 排除，从不进 Git。
+#   而它们对应的 so 在官方发布物里都有，直接提取既省时又不会版本错配：
+#     - libffmpeg.so 等在主 APK
+#     - libmpv.so / libplayer.so 在「设置 → 模组」下载的运行时模块 APK 里
+#   自建 NDK 交叉编译链需要 40+ 分钟，且 libplacebo/FFmpeg/BD-J 依赖复杂。
+#
+# 校验依据（buildSrc/MpvNativeLibraries.groovy）：
+#   mpvArchive  需要 libmpv.so、libplayer.so、libc++_shared.so；
+#               libplayer.so 的 DT_NEEDED 必须含 libmpv.so
+#   ffmpegArchive需要 libffmpegJNI.so、libffmpegDoviJNI.so、libffmpeg.so
+#   以上都必须是「统一版」libffmpeg.so，不能依赖拆分的 libavcodec/libavformat 等
+#
+# 触发：手动 / 每周一自动检查
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_tag:
+        description: '主程序 Release tag（留空取最新）'
+        required: false
+        default: ''
+      module_tag:
+        description: '运行时模块 tag（默认 module）'
+        required: false
+        default: 'module'
+      commit:
+        description: '提取后自动提交 aar 到仓库'
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download main APKs (leanback)
+        id: main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WANT: ${{ inputs.apk_tag }}
+        run: |
+          API="https://api.github.com/repos/FongMi/Release/releases"
+          if [ -n "$WANT" ]; then EP="$API/tags/$WANT"; else EP="$API/latest"; fi
+          curl -sL -H "Authorization: Bearer $GH_TOKEN" "$EP" -o main.json
+          TAG=$(jq -r '.tag_name' main.json)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "主程序 tag: $TAG"
+
+          mkdir -p apks
+          jq -r '.assets[] | select(.name | test("^leanback-.*\\.apk$")) | .browser_download_url' main.json \
+            | while read -r u; do echo "  ↓ $(basename "$u")"; curl -sL --fail -o "apks/$(basename "$u")" "$u"; done
+          ls -lh apks/
+
+      - name: Download runtime module APKs (mpv)
+        id: mod
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MTAG: ${{ inputs.module_tag }}
+        run: |
+          TAG="${MTAG:-module}"
+          curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/FongMi/Release/releases/tags/$TAG" -o mod.json
+          echo "模块 tag: $(jq -r '.tag_name' mod.json)"
+          jq -r '.assets[] | select(.name | test("^runtime-mpv-.*\\.apk$")) | .browser_download_url' mod.json \
+            | while read -r u; do echo "  ↓ $(basename "$u")"; curl -sL --fail -o "apks/$(basename "$u")" "$u"; done
+          ls -lh apks/ | grep -i mpv || { echo "::error::没找到 runtime-mpv 资产"; exit 1; }
+
+      - name: Build ffmpeg aar (from main APK)
+        run: |
+          python3 tools/extract_native_aar.py \
+            $(ls apks/leanback-*.apk | sed 's/^/-a /' | tr '\n' ' ') \
+            -o deps --name lib-decoder-ffmpeg-release.aar
+
+      - name: Build mpv aar (module APK + libc++ from main APK)
+        run: |
+          set -e
+          for MOD in apks/runtime-mpv-*-arm64-v8a.apk; do
+            [ -f "$MOD" ] || continue
+            MAIN=$(ls apks/leanback-*arm64_v8a.apk | head -1)
+            python3 tools/build_mpv_aar.py \
+              --mpv-apk "$MOD" --main-apk "$MAIN" --abi arm64-v8a \
+              -o deps --name lib-mpvplayer-release-arm64.aar
+          done
+          for MOD in apks/runtime-mpv-*-armeabi-v7a.apk; do
+            [ -f "$MOD" ] || continue
+            MAIN=$(ls apks/leanback-*armeabi_v7a.apk | head -1)
+            python3 tools/build_mpv_aar.py \
+              --mpv-apk "$MOD" --main-apk "$MAIN" --abi armeabi-v7a \
+              -o deps --name lib-mpvplayer-release-arm32.aar
+          done
+          ls -lh deps/
+
+      - name: Merge multi-ABI mpv aars
+        run: |
+          python3 - <<'PY'
+          import zipfile, os, glob
+          parts = sorted(glob.glob('deps/lib-mpvplayer-release-*.aar'))
+          if len(parts) <= 1:
+              if parts:
+                  os.replace(parts[0], 'deps/lib-mpvplayer-release.aar')
+              raise SystemExit(0)
+          out_path = 'deps/lib-mpvplayer-release.aar'
+          with zipfile.ZipFile(out_path, 'w', zipfile.ZIP_DEFLATED) as out:
+              written = set()
+              for p in parts:
+                  with zipfile.ZipFile(p) as z:
+                      for n in z.namelist():
+                          if n.endswith('/') or n in written:
+                              continue
+                          out.writestr(n, z.read(n))
+                          written.add(n)
+          for p in parts:
+              os.remove(p)
+          print(f"合并 -> {out_path}: {sorted(written)[:6]} ...")
+          PY
+
+      - name: Verify aars against buildSrc rules
+        run: |
+          python3 - <<'PY'
+          import zipfile, struct, sys
+
+          SPLIT = {'libavcodec.so','libavdevice.so','libavfilter.so','libavformat.so',
+                   'libavutil.so','libswresample.so','libswscale.so'}
+
+          def needed(data):
+              if data[:4] != b'\x7fELF' or data[4] != 2: return None
+              phoff = struct.unpack_from("<Q", data, 32)[0]
+              phes  = struct.unpack_from("<H", data, 54)[0]
+              phnum = struct.unpack_from("<H", data, 56)[0]
+              loads, dyn = [], None
+              for i in range(phnum):
+                  o = phoff + i*phes
+                  t = struct.unpack_from("<I", data, o)[0]
+                  off = struct.unpack_from("<Q", data, o+8)[0]
+                  va  = struct.unpack_from("<Q", data, o+16)[0]
+                  sz  = struct.unpack_from("<Q", data, o+32)[0]
+                  if t == 1: loads.append((off, va, sz))
+                  if t == 2: dyn = (off, sz)
+              if not dyn: return None
+              strtab, names = -1, []
+              o, end = dyn[0], dyn[0]+dyn[1]
+              while o+16 <= end:
+                  tag, val = struct.unpack_from("<qQ", data, o); o += 16
+                  if tag == 0: break
+                  if tag == 1: names.append(val)
+                  if tag == 5: strtab = val
+              if strtab < 0: return None
+              seg = next((l for l in loads if strtab >= l[1] and strtab-l[1] < l[2]), None)
+              if not seg: return None
+              s = seg[0] + (strtab - seg[1])
+              return [data[s+n:data.index(b'\0', s+n)].decode('utf-8','replace') for n in names]
+
+          fails = []
+
+          def check(path, label, required, need_self_unified):
+              z = zipfile.ZipFile(path)
+              names = z.namelist()
+              abis = {n.split('/')[1] for n in names if n.startswith('jni/')}
+              print(f"\n[{label}] ABI={sorted(abis)}")
+              for abi in sorted(abis):
+                  split_hit = [s for s in SPLIT if f"jni/{abi}/{s}" in names]
+                  if split_hit:
+                      fails.append(f"{label}/{abi} 含拆分库 {split_hit}")
+                  for so in required:
+                      e = f"jni/{abi}/{so}"
+                      if e not in names:
+                          fails.append(f"{label}/{abi} 缺 {so}"); continue
+                      deps = needed(z.read(e))
+                      if deps is None: continue
+                      sp = [d for d in deps if d in SPLIT]
+                      if sp: fails.append(f"{label}/{abi} {so} 依赖拆分库 {sp}")
+                      if so in need_self_unified and 'libffmpeg.so' not in deps:
+                          fails.append(f"{label}/{abi} {so} 未依赖统一 libffmpeg.so")
+                      print(f"  ✓ {abi}/{so}")
+                  if label == 'mpv':
+                      d = needed(z.read(f"jni/{abi}/libplayer.so")) or []
+                      if 'libmpv.so' not in d:
+                          fails.append(f"mpv/{abi} libplayer.so 未依赖 libmpv.so")
+
+          check('deps/lib-mpvplayer-release.aar', 'mpv',
+                ['libmpv.so','libplayer.so','libc++_shared.so'],
+                {'libmpv.so','libplayer.so'})
+          check('deps/lib-decoder-ffmpeg-release.aar', 'ffmpeg',
+                ['libffmpegJNI.so','libffmpegDoviJNI.so','libffmpeg.so'],
+                {'libffmpegJNI.so','libffmpegDoviJNI.so'})
+
+          print()
+          if fails:
+              for f in fails: print(f"::error::{f}")
+              sys.exit(1)
+          print("全部校验通过 —— VerifyMpvNativeTask 不会拦")
+          PY
+
+      - name: Upload aars
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-aars-${{ steps.main.outputs.tag }}
+          path: deps/*.aar
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Commit aars back (optional)
+        if: ${{ inputs.commit }}
+        run: |
+          mkdir -p app/libs
+          cp deps/*.aar app/libs/
+          git config user.name  "deps-bot"
+          git config user.email "deps-bot@users.noreply.github.com"
+          git add -f app/libs/lib-decoder-ffmpeg-release.aar app/libs/lib-mpvplayer-release.aar
+          if git diff --cached --quiet; then
+            echo "aar 无变化，跳过提交"
+          else
+            git commit -m "deps(native): extract native aars from FongMi/Release ${{ steps.main.outputs.tag }}"
+            git push
+          fi
