@@ -654,6 +654,20 @@ public final class ContentTypeResolvingMediaSource implements MediaSource {
     }
 
     @Override
+    public Factory setDrmSessionManagerProvider(
+        androidx.media3.exoplayer.drm.DrmSessionManagerProvider provider) {
+      delegate.setDrmSessionManagerProvider(provider);
+      return this;
+    }
+
+    @Override
+    public Factory setLoadErrorHandlingPolicy(
+        androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy policy) {
+      delegate.setLoadErrorHandlingPolicy(policy);
+      return this;
+    }
+
+    @Override
     public int[] getSupportedTypes() {
       return delegate.getSupportedTypes();
     }
