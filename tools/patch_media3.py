@@ -181,6 +181,184 @@ public final class IsoDiscPreparation {
 }
 '''
 
+# ─────────────────────────── 缺失类补全（第 2 批：数据类） ───────────────────────────
+
+SUBTITLE_OFFSETS = '''package androidx.media3.common.text;
+
+/** Per-track subtitle timing offsets, in milliseconds. */
+public final class SubtitleOffsets {
+
+  /** No offset at all. */
+  public static final SubtitleOffsets ZERO = new SubtitleOffsets(0L, 0L);
+
+  /** Offset applied to the primary subtitle track. */
+  public final long primaryMs;
+
+  /** Offset applied to the secondary subtitle track. */
+  public final long secondaryMs;
+
+  public SubtitleOffsets(long primaryMs, long secondaryMs) {
+    this.primaryMs = primaryMs;
+    this.secondaryMs = secondaryMs;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof SubtitleOffsets)) return false;
+    SubtitleOffsets other = (SubtitleOffsets) o;
+    return primaryMs == other.primaryMs && secondaryMs == other.secondaryMs;
+  }
+
+  @Override
+  public int hashCode() {
+    return (int) (primaryMs * 31 + secondaryMs);
+  }
+
+  @Override
+  public String toString() {
+    return "SubtitleOffsets{primary=" + primaryMs + ", secondary=" + secondaryMs + "}";
+  }
+}
+'''
+
+SUBTITLE_SELECTION_STATE = '''package androidx.media3.common.text;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.TrackSelectionOverride;
+
+/**
+ * Which text track is currently primary, and which extra track is shown as secondary.
+ *
+ * <p>Without an FFmpeg/libass text pipeline this build never tracks secondary tracks, so {@link
+ * #EMPTY} answers {@code false} for everything.
+ */
+public final class SubtitleSelectionState {
+
+  /** No track is selected. */
+  public static final SubtitleSelectionState EMPTY = new SubtitleSelectionState(null, null);
+
+  @Nullable private final TrackSelectionOverride primary;
+  @Nullable private final TrackSelectionOverride secondary;
+
+  public SubtitleSelectionState(
+      @Nullable TrackSelectionOverride primary, @Nullable TrackSelectionOverride secondary) {
+    this.primary = primary;
+    this.secondary = secondary;
+  }
+
+  /** Returns whether the given override is the primary subtitle track. */
+  public boolean isPrimary(@Nullable TrackSelectionOverride selection) {
+    return selection != null && selection.equals(primary);
+  }
+
+  /** Returns whether the given override is an active secondary subtitle track. */
+  public boolean isActiveSecondary(@Nullable TrackSelectionOverride selection) {
+    return selection != null && selection.equals(secondary);
+  }
+}
+'''
+
+VIDEO_ADJUSTMENT = '''package androidx.media3.effect;
+
+/** Snapshot of user colour / detail adjustments, applied by the video effect chain. */
+public final class VideoAdjustment {
+
+  public final float saturation;
+  public final float contrast;
+  public final float brightness;
+  public final float gamma;
+  public final float hue;
+  public final float redGain;
+  public final float blueGain;
+  public final float sharpness;
+  public final float threshold;
+  public final float shadowLift;
+
+  private VideoAdjustment(Builder b) {
+    this.saturation = b.saturation;
+    this.contrast = b.contrast;
+    this.brightness = b.brightness;
+    this.gamma = b.gamma;
+    this.hue = b.hue;
+    this.redGain = b.redGain;
+    this.blueGain = b.blueGain;
+    this.sharpness = b.sharpness;
+    this.threshold = b.threshold;
+    this.shadowLift = b.shadowLift;
+  }
+
+  /** Builder for {@link VideoAdjustment}. */
+  public static final class Builder {
+
+    private float saturation = 1f;
+    private float contrast = 1f;
+    private float brightness = 0f;
+    private float gamma = 1f;
+    private float hue = 0f;
+    private float redGain = 1f;
+    private float blueGain = 1f;
+    private float sharpness = 0f;
+    private float threshold = 0f;
+    private float shadowLift = 0f;
+
+    public Builder setSaturation(float value) {
+      this.saturation = value;
+      return this;
+    }
+
+    public Builder setContrast(float value) {
+      this.contrast = value;
+      return this;
+    }
+
+    public Builder setBrightness(float value) {
+      this.brightness = value;
+      return this;
+    }
+
+    public Builder setGamma(float value) {
+      this.gamma = value;
+      return this;
+    }
+
+    public Builder setHue(float value) {
+      this.hue = value;
+      return this;
+    }
+
+    public Builder setRedGain(float value) {
+      this.redGain = value;
+      return this;
+    }
+
+    public Builder setBlueGain(float value) {
+      this.blueGain = value;
+      return this;
+    }
+
+    public Builder setSharpness(float value) {
+      this.sharpness = value;
+      return this;
+    }
+
+    public Builder setThreshold(float value) {
+      this.threshold = value;
+      return this;
+    }
+
+    public Builder setShadowLift(float value) {
+      this.shadowLift = value;
+      return this;
+    }
+
+    public VideoAdjustment build() {
+      return new VideoAdjustment(this);
+    }
+  }
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 1 批：枚举/常量） ───────────────────────────
 
 COMMON_DECODER_MODE = '''package androidx.media3.common;
@@ -427,6 +605,21 @@ def main():
 
     print("[9/9] 新增 AudioChannelMode")
     write_if_absent(f"{common}/audio/AudioChannelMode.java", AUDIO_CHANNEL_MODE, "class AudioChannelMode")
+
+    effect = f"{root}/libraries/effect/src/main/java/androidx/media3/effect"
+
+    print("[10/12] 新增 SubtitleOffsets")
+    write_if_absent(f"{common}/text/SubtitleOffsets.java", SUBTITLE_OFFSETS, "class SubtitleOffsets")
+
+    print("[11/12] 新增 SubtitleSelectionState")
+    write_if_absent(
+        f"{common}/text/SubtitleSelectionState.java",
+        SUBTITLE_SELECTION_STATE,
+        "class SubtitleSelectionState",
+    )
+
+    print("[12/12] 新增 VideoAdjustment")
+    write_if_absent(f"{effect}/VideoAdjustment.java", VIDEO_ADJUSTMENT, "class VideoAdjustment")
 
     print("\n补丁完成。")
 
