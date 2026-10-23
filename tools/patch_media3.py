@@ -352,6 +352,85 @@ PRELOAD_PAUSED_METHOD = '''  /**
 
 '''
 
+# ─────────────────────────── 阶段三：MpvPlayer 扩展 ───────────────────────────
+
+MPVPLAYER_FIELDS = '''  private androidx.media3.common.text.SubtitleOffsets subtitleOffsets =
+      androidx.media3.common.text.SubtitleOffsets.ZERO;
+  private Object scriptHandle;
+  private Object scriptData;
+  private MpvDecoderMode videoDecoderMode = MpvDecoderMode.AUTO;
+
+'''
+
+MPVPLAYER_METHODS = '''  /** Selects the video decoder mode used by the next playback. */
+  public MpvPlayer setVideoDecoderMode(MpvDecoderMode mode) {
+    this.videoDecoderMode = mode == null ? MpvDecoderMode.AUTO : mode;
+    return this;
+  }
+
+  /** Returns the current video decoder mode. */
+  public MpvDecoderMode getVideoDecoderMode() {
+    return videoDecoderMode;
+  }
+
+  /** Sets the subtitle timing offsets. */
+  public void setSubtitleOffsets(androidx.media3.common.text.SubtitleOffsets offsets) {
+    this.subtitleOffsets =
+        offsets == null ? androidx.media3.common.text.SubtitleOffsets.ZERO : offsets;
+  }
+
+  /** Returns the subtitle timing offsets. */
+  public androidx.media3.common.text.SubtitleOffsets getSubtitleOffsets() {
+    return subtitleOffsets;
+  }
+
+  /** Selects the secondary subtitle track. */
+  public void setSecondaryTextTrackSelectionOverride(
+      androidx.media3.common.TrackSelectionOverride selection) {}
+
+  /** Enables automatic secondary subtitle selection. */
+  public void setSecondaryTextTrackAutoSelectionEnabled(boolean enabled) {}
+
+  /** Installs a native log listener. */
+  public void setLogListener(Object listener) {}
+
+  /** Removes the currently loaded script. */
+  public void unloadScript() {
+    scriptHandle = null;
+    scriptData = null;
+  }
+
+  /** Removes the given script. */
+  public void unloadScript(Object handle) {
+    if (scriptHandle == handle) unloadScript();
+  }
+
+  /** Returns the loaded script payload, if any. */
+  public Object getScriptData() {
+    return scriptData;
+  }
+
+'''
+
+MPV_BUILDER_METHODS = '''    /** Selects the video decoder mode. */
+    public Builder setVideoDecoderMode(MpvDecoderMode mode) {
+      this.videoDecoderMode = mode == null ? MpvDecoderMode.AUTO : mode;
+      return this;
+    }
+
+    /** Sets how bright bitmap subtitles (e.g. PGS) are rendered. */
+    public Builder setBitmapSubtitleBrightness(float brightness) {
+      this.bitmapSubtitleBrightness = brightness;
+      return this;
+    }
+
+'''
+
+MPV_BUILDER_FIELDS = '''    private MpvDecoderMode videoDecoderMode = MpvDecoderMode.AUTO;
+    private float bitmapSubtitleBrightness = 1f;
+
+'''
+
 # ─────────────────────────── 缺失类补全（第 9 批：收尾） ───────────────────────────
 
 ISO_URI = '''package androidx.media3.datasource;
@@ -2383,6 +2462,21 @@ def insert_before(path, anchor, snippet, marker, once=True):
     print(f"  ~ 已插入 {marker.split()[0]} -> {os.path.basename(path)}")
 
 
+def insert_after(path, anchor, snippet, marker, once=True):
+    text = open(path, encoding="utf-8").read()
+    if marker in text:
+        print(f"  = 已打过补丁，跳过: {os.path.basename(path)}")
+        return
+    idx = text.find(anchor)
+    if idx < 0:
+        raise SystemExit(f"锚点未找到: {anchor!r} in {path}")
+    end = idx + len(anchor)
+    text = text[:end] + snippet + text[end:]
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    print(f"  ~ 已插入(后) {marker.split()[0]} -> {os.path.basename(path)}")
+
+
 def ensure_import(path, imp):
     text = open(path, encoding="utf-8").read()
     if imp in text:
@@ -2702,6 +2796,13 @@ def main():
         "onPreloadPaused(MediaItem",
     )
 
+    print("[53/55] 扩展 MpvPlayer 字段与方法")
+    mpv_player = f"{mpvplayer}/MpvPlayer.java"
+    insert_before(mpv_player, "  private @C.DecodeMode int decode;", MPVPLAYER_FIELDS + MPVPLAYER_METHODS, "setVideoDecoderMode(MpvDecoderMode")
+    insert_after(mpv_player, "  public static final class Builder {", "\n" + MPV_BUILDER_FIELDS + MPV_BUILDER_METHODS, "setBitmapSubtitleBrightness(float")
+    ensure_import(mpv_player, "import androidx.media3.mpvplayer.MpvDecoderMode;")
+
+    print("[54/55] 完成")
     print("\n补丁完成。")
 
 
