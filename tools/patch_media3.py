@@ -352,6 +352,60 @@ PRELOAD_PAUSED_METHOD = '''  /**
 
 '''
 
+SUBTITLEVIEW_BRIGHTNESS = '''  private float bitmapSubtitleBrightness = 1f;
+
+  /** Sets how bright bitmap (PGS) subtitles are rendered. */
+  public void setBitmapSubtitleBrightness(float brightness) {
+    this.bitmapSubtitleBrightness = brightness;
+  }
+
+  /** Returns the bitmap subtitle brightness. */
+  public float getBitmapSubtitleBrightness() {
+    return bitmapSubtitleBrightness;
+  }
+
+'''
+
+MPV_SUBTITLE_OPTION_METHODS = '''    /** Brightness applied to bitmap (PGS) subtitles. */
+    public Builder setBitmapSubtitleBrightness(float brightness) {
+      this.bitmapSubtitleBrightness = brightness;
+      return this;
+    }
+
+    /** Vertical offset of the primary subtitle, in percent from the bottom. */
+    public Builder setVerticalOffset(int verticalOffset) {
+      this.verticalOffset = verticalOffset;
+      return this;
+    }
+
+    /** Vertical position of the secondary subtitle, in percent from the top. */
+    public Builder setSecondarySubtitlePosition(double position) {
+      this.secondarySubtitlePosition = position;
+      return this;
+    }
+
+    /** Vertical offset of the secondary subtitle, in percent from the bottom. */
+    public Builder setSecondaryVerticalOffset(double verticalOffset) {
+      this.secondaryVerticalOffset = verticalOffset;
+      return this;
+    }
+
+    /** Forces the ASS style override. */
+    public Builder setSecondaryAssStyleOverride(boolean override) {
+      this.secondaryAssStyleOverride = override;
+      return this;
+    }
+
+'''
+
+MPV_SUBTITLE_OPTION_FIELDS = '''    private float bitmapSubtitleBrightness = 1f;
+    private int verticalOffset = 100;
+    private double secondarySubtitlePosition = 100.0;
+    private double secondaryVerticalOffset = 100.0;
+    private boolean secondaryAssStyleOverride;
+
+'''
+
 # ─────────────────────────── 阶段三：MpvPlayer 扩展 ───────────────────────────
 
 MPVPLAYER_FIELDS = '''  private androidx.media3.common.text.SubtitleOffsets subtitleOffsets =
@@ -778,24 +832,32 @@ public final class ContentTypeResolvingMediaSource implements MediaSource {
 
 VIDEO_TRANSFORM = '''package androidx.media3.common;
 
-/** Scale factors applied to the video surface. */
+/** Scale and pan factors applied to the video surface. */
 public final class VideoTransform {
 
   public final float scaleX;
   public final float scaleY;
+  public final float panX;
+  public final float panY;
 
   public VideoTransform() {
-    this(1f, 1f);
+    this(1f, 1f, 0f, 0f);
   }
 
   public VideoTransform(float scaleX, float scaleY) {
+    this(scaleX, scaleY, 0f, 0f);
+  }
+
+  public VideoTransform(float scaleX, float scaleY, float panX, float panY) {
     this.scaleX = scaleX;
     this.scaleY = scaleY;
+    this.panX = panX;
+    this.panY = panY;
   }
 
   @Override
   public String toString() {
-    return "VideoTransform{" + scaleX + ", " + scaleY + "}";
+    return "VideoTransform{" + scaleX + ", " + scaleY + ", " + panX + ", " + panY + "}";
   }
 }
 '''
@@ -1804,7 +1866,11 @@ public final class SubtitleContent {
 
   /** Signals that the track could not be read. */
   public static final SubtitleContent UNSUPPORTED =
-      new SubtitleContent(Collections.emptyList(), null);
+      new SubtitleContent(Collections.emptyList(), null, State.UNSUPPORTED);
+
+  /** Placeholder used while a transcript is still loading. */
+  public static final SubtitleContent LOADING =
+      new SubtitleContent(Collections.emptyList(), null, State.LOADING);
 
   /** Parsed cues, in playback order. */
   public final List<Cue> cues;
@@ -2289,6 +2355,8 @@ EXOPLAYER_DECODER_MODE = '''package androidx.media3.exoplayer;
 
 /** Decoder selection stored by the ExoPlayer stack. */
 public enum DecoderMode {
+  /** Let the player choose. */
+  AUTO,
   /** Platform decoder. */
   MEDIACODEC,
   /** FFmpeg software decoder. */
@@ -2296,17 +2364,22 @@ public enum DecoderMode {
 
   /** Converts to the app-facing representation. */
   public androidx.media3.common.DecoderMode toCommonDecoderMode() {
-    return this == FFMPEG
-        ? androidx.media3.common.DecoderMode.FFMPEG
-        : androidx.media3.common.DecoderMode.HARDWARE;
+    switch (this) {
+      case FFMPEG:
+        return androidx.media3.common.DecoderMode.FFMPEG;
+      case MEDIACODEC:
+        return androidx.media3.common.DecoderMode.HARDWARE;
+      case AUTO:
+      default:
+        return androidx.media3.common.DecoderMode.AUTO;
+    }
   }
 
   /** Converts from the app-facing representation. */
   public static DecoderMode fromCommonDecoderMode(androidx.media3.common.DecoderMode mode) {
-    if (mode == androidx.media3.common.DecoderMode.FFMPEG) {
-      return FFMPEG;
-    }
-    return MEDIACODEC;
+    if (mode == androidx.media3.common.DecoderMode.FFMPEG) return FFMPEG;
+    if (mode == androidx.media3.common.DecoderMode.HARDWARE) return MEDIACODEC;
+    return AUTO;
   }
 }
 '''
@@ -2802,7 +2875,20 @@ def main():
     insert_after(mpv_player, "  public static final class Builder {", "\n" + MPV_BUILDER_FIELDS + MPV_BUILDER_METHODS, "setBitmapSubtitleBrightness(float")
     ensure_import(mpv_player, "import androidx.media3.mpvplayer.MpvDecoderMode;")
 
-    print("[54/55] 完成")
+    print("[55/57] 扩展 MpvSubtitleOptions.Builder")
+    mso = f"{mpvplayer}/MpvSubtitleOptions.java"
+    insert_before(
+        mso,
+        "    public Builder setScale(",
+        MPV_SUBTITLE_OPTION_FIELDS + MPV_SUBTITLE_OPTION_METHODS,
+        "setBitmapSubtitleBrightness(float",
+    )
+
+    print("[56/57] 扩展 SubtitleView.setBitmapSubtitleBrightness")
+    sv = f"{ui}/SubtitleView.java"
+    insert_before(sv, "  private List<Cue> cues;", SUBTITLEVIEW_BRIGHTNESS, "setBitmapSubtitleBrightness(float")
+
+    print("[57/57] 完成")
     print("\n补丁完成。")
 
 
