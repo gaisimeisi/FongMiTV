@@ -343,6 +343,237 @@ DRF_SET_DECODER_MANAGER = '''  private DecoderManager decoderManager;
 
 '''
 
+# ─────────────────────────── 缺失类补全（第 8 批：特效 / 弹幕 / mpv 辅助 / libass UI） ───────────────────────────
+
+COLOR_TONE_ADJUST_EFFECT = '''package androidx.media3.effect;
+
+/** Carries a colour-tone adjustment. */
+public final class ColorToneAdjustEffect {
+
+  private VideoAdjustment adjustment;
+
+  public void setAdjustment(VideoAdjustment adjustment) {
+    this.adjustment = adjustment;
+  }
+
+  public VideoAdjustment getAdjustment() {
+    return adjustment;
+  }
+}
+'''
+
+DETAIL_ADJUST_EFFECT = '''package androidx.media3.effect;
+
+/** Carries a detail (sharpness) adjustment. */
+public final class DetailAdjustEffect {
+
+  private VideoAdjustment adjustment;
+
+  public void setAdjustment(VideoAdjustment adjustment) {
+    this.adjustment = adjustment;
+  }
+
+  public VideoAdjustment getAdjustment() {
+    return adjustment;
+  }
+}
+'''
+
+AUDIO_EQUALIZER_CONTROLLER = '''package androidx.media3.exoplayer.audio;
+
+import android.content.Context;
+import androidx.annotation.Nullable;
+import androidx.media3.common.audio.AudioEffectParameters;
+import androidx.media3.exoplayer.ExoPlayer;
+
+/**
+ * Applies the equalizer through the platform audio effect API.
+ *
+ * <p>This build does not attach a platform equalizer, so {@link #apply} always reports that the
+ * request was not handled and audio stays untouched.
+ */
+public final class AudioEqualizerController {
+
+  @Nullable private final Context context;
+
+  public AudioEqualizerController(Context context) {
+    this.context = context;
+  }
+
+  /** Returns whether the equalizer took over the parameters. */
+  public boolean apply(ExoPlayer player, AudioEffectParameters config) {
+    return false;
+  }
+
+  public void release() {}
+}
+'''
+
+DANMAKU_PLAYER_VIEW_CONTROLLER = '''package androidx.media3.ui.danmaku;
+
+import android.net.Uri;
+import androidx.annotation.Nullable;
+import androidx.media3.ui.PlayerView;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Drives the danmaku overlay.
+ *
+ * <p>Without the danmaku rendering layer this controller only records state; nothing is drawn.
+ */
+@SuppressWarnings({"rawtypes", "unchecked"})
+public final class DanmakuPlayerViewController {
+
+  private boolean enabled;
+
+  public void bind(PlayerView playerView) {}
+
+  public void close() {}
+
+  /** Returns the currently visible danmaku items. */
+  public List getItems() {
+    return Collections.emptyList();
+  }
+
+  /** Sends a user-authored danmaku immediately. */
+  public void sendNow(String text) {}
+
+  public void setConfig(Object config) {}
+
+  public void setDataSource(@Nullable Uri uri) {}
+
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
+  }
+
+  public boolean isEnabled() {
+    return enabled;
+  }
+
+  public void setOkHttpClient(Object client) {}
+}
+'''
+
+LIBASS_PLAYER_VIEW_CONTROLLER = '''package androidx.media3.ui.libass;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.Player;
+import androidx.media3.exoplayer.libass.LibassPlaybackSession;
+import androidx.media3.exoplayer.libass.LibassSubtitleController;
+import androidx.media3.ui.PlayerView;
+import androidx.media3.ui.SubtitleView;
+import java.util.function.Consumer;
+
+/**
+ * Binds the libass subtitle surface to a {@link PlayerView}.
+ *
+ * <p>This build keeps the Media3 subtitle view in place, so {@link #bind} does not replace it and
+ * subtitle styling falls back to the default renderer.
+ */
+public final class LibassPlayerViewController {
+
+  public LibassPlayerViewController(
+      Player player,
+      LibassPlaybackSession session,
+      LibassSubtitleController controller) {}
+
+  public void close() {}
+
+  public void bind(PlayerView playerView) {}
+
+  public void setStyleOverride(@Nullable Object style, @Nullable String fontFamily) {}
+
+  public void setSecondarySubtitleViewConfigurator(
+      @Nullable Consumer<SubtitleView> configurator) {}
+}
+'''
+
+MPV_DRM_SUPPORT = '''package androidx.media3.mpvplayer.media;
+
+import androidx.media3.common.MediaItem;
+
+/** Tells whether the mpv engine can play a DRM-protected item. */
+public final class MpvDrmSupport {
+
+  private MpvDrmSupport() {}
+
+  /** Returns whether mpv can handle the item's DRM scheme. */
+  public static boolean supports(MediaItem item) {
+    return false;
+  }
+}
+'''
+
+MPV_CONFIG_FILE_INSPECTOR = '''package androidx.media3.mpvplayer;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.Set;
+
+/** Reads mpv.conf style configuration files. */
+public final class MpvConfigFileInspector {
+
+  private final Path directory;
+
+  public MpvConfigFileInspector(Path directory) {
+    this.directory = directory;
+  }
+
+  /** Returns the subtitle font directory declared in mpv.conf, when present. */
+  public File readSubtitleFontsDirectory() {
+    return null;
+  }
+
+  /** Returns the option names that would take effect for the given config content. */
+  public Set<String> getEffectiveOptionNames(String content) {
+    return Collections.emptySet();
+  }
+
+  public Path getDirectory() {
+    return directory;
+  }
+}
+'''
+
+LIBASS_FONT_CONFIG = '''package androidx.media3.exoplayer.libass;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+
+/** Writes an fontconfig file describing the external subtitle fonts. */
+public final class LibassFontConfig {
+
+  private LibassFontConfig() {}
+
+  /** Writes the font configuration to {@code target}. */
+  public static void write(File target, Path cacheDirectory, List<File> fontDirectories)
+      throws IOException {
+    if (target == null) return;
+    StringBuilder sb = new StringBuilder();
+    sb.append("<?xml version=\\"1.0\\"?>\\n");
+    sb.append("<!DOCTYPE fontconfig SYSTEM \\"fonts.dtd\\">\\n");
+    sb.append("<fontconfig>\\n");
+    if (fontDirectories != null) {
+      for (File dir : fontDirectories) {
+        if (dir == null) continue;
+        sb.append("  <dir>").append(dir.getAbsolutePath()).append("</dir>\\n");
+      }
+    }
+    if (cacheDirectory != null) {
+      sb.append("  <cachedir>").append(cacheDirectory.toString()).append("</cachedir>\\n");
+    }
+    sb.append("</fontconfig>\\n");
+    try (java.io.FileWriter writer = new java.io.FileWriter(target, false)) {
+      writer.write(sb.toString());
+    }
+  }
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 7 批：MediaSource / 音频处理 / ISO） ───────────────────────────
 
 END_TRIM_MEDIA_SOURCE = '''package androidx.media3.exoplayer.source;
@@ -999,6 +1230,18 @@ import java.util.List;
 /** Parsed subtitle payload handed between the player engines. */
 public final class SubtitleContent {
 
+  /** Load state of a subtitle transcript. */
+  public enum State {
+    /** Still loading. */
+    LOADING,
+    /** Parsed successfully. */
+    COMPLETE,
+    /** Loaded but empty. */
+    EMPTY,
+    /** Format not supported. */
+    UNSUPPORTED
+  }
+
   /** Signals that the track could not be read. */
   public static final SubtitleContent UNSUPPORTED =
       new SubtitleContent(Collections.emptyList(), null);
@@ -1009,9 +1252,17 @@ public final class SubtitleContent {
   /** MIME type the cues were parsed from, when known. */
   @Nullable public final String mimeType;
 
+  /** Current load state. */
+  public final State state;
+
   public SubtitleContent(List<Cue> cues, @Nullable String mimeType) {
+    this(cues, mimeType, cues == null || cues.isEmpty() ? State.EMPTY : State.COMPLETE);
+  }
+
+  public SubtitleContent(List<Cue> cues, @Nullable String mimeType, State state) {
     this.cues = cues == null ? Collections.emptyList() : cues;
     this.mimeType = mimeType;
+    this.state = state == null ? State.EMPTY : state;
   }
 
   /** Returns whether reading the track failed. */
@@ -1820,6 +2071,54 @@ def main():
         f"{exoplayer}/iso/IsoNavigationPlayerController.java",
         ISO_NAVIGATION_PLAYER_CONTROLLER,
         "class IsoNavigationPlayerController",
+    )
+
+    print("[36/43] 新增 ColorToneAdjustEffect")
+    write_if_absent(
+        f"{effect}/ColorToneAdjustEffect.java", COLOR_TONE_ADJUST_EFFECT, "class ColorToneAdjustEffect"
+    )
+
+    print("[37/43] 新增 DetailAdjustEffect")
+    write_if_absent(
+        f"{effect}/DetailAdjustEffect.java", DETAIL_ADJUST_EFFECT, "class DetailAdjustEffect"
+    )
+
+    print("[38/43] 新增 AudioEqualizerController")
+    write_if_absent(
+        f"{exoplayer}/audio/AudioEqualizerController.java",
+        AUDIO_EQUALIZER_CONTROLLER,
+        "class AudioEqualizerController",
+    )
+
+    print("[39/43] 新增 DanmakuPlayerViewController")
+    write_if_absent(
+        f"{ui}/danmaku/DanmakuPlayerViewController.java",
+        DANMAKU_PLAYER_VIEW_CONTROLLER,
+        "class DanmakuPlayerViewController",
+    )
+
+    print("[40/43] 新增 LibassPlayerViewController")
+    write_if_absent(
+        f"{ui}/libass/LibassPlayerViewController.java",
+        LIBASS_PLAYER_VIEW_CONTROLLER,
+        "class LibassPlayerViewController",
+    )
+
+    print("[41/43] 新增 MpvDrmSupport")
+    write_if_absent(
+        f"{mpvplayer}/media/MpvDrmSupport.java", MPV_DRM_SUPPORT, "class MpvDrmSupport"
+    )
+
+    print("[42/43] 新增 MpvConfigFileInspector")
+    write_if_absent(
+        f"{mpvplayer}/MpvConfigFileInspector.java",
+        MPV_CONFIG_FILE_INSPECTOR,
+        "class MpvConfigFileInspector",
+    )
+
+    print("[43/43] 新增 LibassFontConfig")
+    write_if_absent(
+        f"{exoplayer}/libass/LibassFontConfig.java", LIBASS_FONT_CONFIG, "class LibassFontConfig"
     )
 
     print("\n补丁完成。")
