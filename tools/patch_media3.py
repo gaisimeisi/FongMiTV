@@ -1531,7 +1531,7 @@ def main():
     print("[30/30] 扩展 DefaultRenderersFactory")
     insert_before(
         f"{exoplayer}/DefaultRenderersFactory.java",
-        "  public final DefaultRenderersFactory setEnableDecoderFallback(boolean enableDecoderFallback) {",
+        "  private boolean enableDecoderFallback;",
         DRF_SET_DECODER_MANAGER,
         "setDecoderManager(DecoderManager",
     )
