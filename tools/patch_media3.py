@@ -181,6 +181,171 @@ public final class IsoDiscPreparation {
 }
 '''
 
+# ─────────────────────────── 缺失类补全（第 3 批：音频效果） ───────────────────────────
+
+AUDIO_EFFECT_PARAMETERS = '''package androidx.media3.common.audio;
+
+/** Immutable snapshot of the audio post-processing configuration. */
+public final class AudioEffectParameters {
+
+  /** Everything off. */
+  public static final AudioEffectParameters DEFAULT = new Builder().build();
+
+  private final int[] frequencies;
+  private final short[] levels;
+  private final float stability;
+  private final int boostMillibels;
+  private final int preampMillibels;
+  private final int centerGainMillibels;
+  private final float balance;
+  private final int channelMode;
+  private final boolean loudnessEnabled;
+
+  private AudioEffectParameters(Builder b) {
+    this.frequencies = b.frequencies;
+    this.levels = b.levels;
+    this.stability = b.stability;
+    this.boostMillibels = b.boostMillibels;
+    this.preampMillibels = b.preampMillibels;
+    this.centerGainMillibels = b.centerGainMillibels;
+    this.balance = b.balance;
+    this.channelMode = b.channelMode;
+    this.loudnessEnabled = b.loudnessEnabled;
+  }
+
+  /** Centre-channel gain only makes sense with a real centre speaker. */
+  public static boolean isCenterGainAvailable(int channelCount) {
+    return channelCount >= 3;
+  }
+
+  /** Returns whether any equalizer band is configured. */
+  public boolean hasBands() {
+    return levels.length > 0;
+  }
+
+  /** Returns whether any processing at all is configured. */
+  public boolean hasEffect() {
+    return hasBands()
+        || stability > 0f
+        || boostMillibels != 0
+        || preampMillibels != 0
+        || centerGainMillibels != 0
+        || balance != 0f
+        || loudnessEnabled
+        || channelMode != AudioChannelMode.AUTO;
+  }
+
+  /** Returns whether a centre gain applies to the given layout. */
+  public boolean hasCenterGain(int channelCount) {
+    return centerGainMillibels != 0 && isCenterGainAvailable(channelCount);
+  }
+
+  /** Returns whether the mix needs an output limiter to avoid clipping. */
+  public boolean shouldLimitOutput(int channelCount) {
+    return hasBands() || boostMillibels > 0 || preampMillibels > 0 || hasCenterGain(channelCount);
+  }
+
+  public float getCenterGainFactor() {
+    return centerGainMillibels / 100.0f;
+  }
+
+  public int[] getEqualizerFrequencies() {
+    return frequencies.clone();
+  }
+
+  public short[] getEqualizerLevelsMillibels() {
+    return levels.clone();
+  }
+
+  public float getStability() {
+    return stability;
+  }
+
+  public int getBoostMillibels() {
+    return boostMillibels;
+  }
+
+  public int getPreampMillibels() {
+    return preampMillibels;
+  }
+
+  public int getCenterGainMillibels() {
+    return centerGainMillibels;
+  }
+
+  public float getBalance() {
+    return balance;
+  }
+
+  public int getChannelMode() {
+    return channelMode;
+  }
+
+  public boolean isLoudnessEnabled() {
+    return loudnessEnabled;
+  }
+
+  /** Builder for {@link AudioEffectParameters}. */
+  public static final class Builder {
+
+    private int[] frequencies = new int[0];
+    private short[] levels = new short[0];
+    private float stability = 0f;
+    private int boostMillibels = 0;
+    private int preampMillibels = 0;
+    private int centerGainMillibels = 0;
+    private float balance = 0f;
+    private int channelMode = AudioChannelMode.AUTO;
+    private boolean loudnessEnabled = false;
+
+    public Builder setEqualizerBands(int[] frequencies, short[] levels) {
+      this.frequencies = frequencies == null ? new int[0] : frequencies.clone();
+      this.levels = levels == null ? new short[0] : levels.clone();
+      return this;
+    }
+
+    public Builder setStability(float stability) {
+      this.stability = stability;
+      return this;
+    }
+
+    public Builder setBoostMillibels(int boostMillibels) {
+      this.boostMillibels = boostMillibels;
+      return this;
+    }
+
+    public Builder setPreampMillibels(int preampMillibels) {
+      this.preampMillibels = preampMillibels;
+      return this;
+    }
+
+    public Builder setCenterGainMillibels(int centerGainMillibels) {
+      this.centerGainMillibels = centerGainMillibels;
+      return this;
+    }
+
+    public Builder setBalance(float balance) {
+      this.balance = balance;
+      return this;
+    }
+
+    public Builder setChannelMode(int channelMode) {
+      this.channelMode = channelMode;
+      return this;
+    }
+
+    public Builder setLoudnessEnabled(boolean loudnessEnabled) {
+      this.loudnessEnabled = loudnessEnabled;
+      return this;
+    }
+
+    public AudioEffectParameters build() {
+      return new AudioEffectParameters(this);
+    }
+  }
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 2 批：数据类） ───────────────────────────
 
 SUBTITLE_OFFSETS = '''package androidx.media3.common.text;
@@ -620,6 +785,13 @@ def main():
 
     print("[12/12] 新增 VideoAdjustment")
     write_if_absent(f"{effect}/VideoAdjustment.java", VIDEO_ADJUSTMENT, "class VideoAdjustment")
+
+    print("[13/13] 新增 AudioEffectParameters")
+    write_if_absent(
+        f"{common}/audio/AudioEffectParameters.java",
+        AUDIO_EFFECT_PARAMETERS,
+        "class AudioEffectParameters",
+    )
 
     print("\n补丁完成。")
 
