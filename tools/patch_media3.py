@@ -279,14 +279,15 @@ LIBASS_PLAYBACK_SESSION = '''package androidx.media3.exoplayer.libass;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
-import androidx.media3.exoplayer.extractor.ExtractorsFactory;
 import androidx.media3.exoplayer.text.SubtitleTranscript;
+import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.text.SubtitleParser;
 
 /**
  * Owns the libass rendering session for one playback.
  *
  * <p>This build keeps the object graph intact but reports {@link #isAvailable()} as {@code false}:
- * the native libreass pipeline is not wired up, so subtitle rendering stays on the Media3 path
+ * the native libass pipeline is not wired up, so subtitle rendering stays on the Media3 path
  * (SRT / WebVTT / embedded tracks work normally, ASS styling does not).
  */
 public final class LibassPlaybackSession {
@@ -295,11 +296,10 @@ public final class LibassPlaybackSession {
   public static final class MediaComponents {
 
     public final ExtractorsFactory extractorsFactory;
-    public final androidx.media3.extractor.text.SubtitleParser.Factory subtitleParserFactory;
+    public final SubtitleParser.Factory subtitleParserFactory;
 
     public MediaComponents(
-        ExtractorsFactory extractorsFactory,
-        androidx.media3.extractor.text.SubtitleParser.Factory subtitleParserFactory) {
+        ExtractorsFactory extractorsFactory, SubtitleParser.Factory subtitleParserFactory) {
       this.extractorsFactory = extractorsFactory;
       this.subtitleParserFactory = subtitleParserFactory;
     }
@@ -307,7 +307,6 @@ public final class LibassPlaybackSession {
 
   private final LibassConfiguration configuration;
   private final boolean enabled;
-  private volatile boolean closed;
 
   public LibassPlaybackSession(LibassConfiguration configuration, boolean enabled) {
     this.configuration = configuration;
@@ -341,9 +340,7 @@ public final class LibassPlaybackSession {
     return enabled;
   }
 
-  public void close() {
-    closed = true;
-  }
+  public void close() {}
 }
 '''
 
@@ -422,6 +419,7 @@ public final class SubtitleTranscriptSession {
 
 SUBTITLE_TRANSCRIPT_PARSER_FACTORY = '''package androidx.media3.exoplayer.text;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -448,6 +446,11 @@ public final class SubtitleTranscriptParserFactory implements SubtitleParser.Fac
   @Override
   public boolean supportsFormat(Format format) {
     return delegate.supportsFormat(format);
+  }
+
+  @Override
+  public int getCueReplacementBehavior(Format format) {
+    return delegate.getCueReplacementBehavior(format);
   }
 
   @Override
@@ -1171,9 +1174,13 @@ def main():
         "class DefaultSubtitleContentLoader",
     )
 
-    print("[16/16] 新增 MpvSubtitleContentLoader")
+    print("[16/22] 新增 MpvSubtitleContentLoader")
+    stale = f"{mpvplayer}/MpvSubtitleContentLoader.java"
+    if os.path.exists(stale):
+        os.remove(stale)
+        print(f"  - 移除旧位置: {stale}")
     write_if_absent(
-        f"{mpvplayer}/MpvSubtitleContentLoader.java",
+        f"{exoplayer}/mpvplayer/MpvSubtitleContentLoader.java",
         MPV_SUBTITLE_CONTENT_LOADER,
         "interface MpvSubtitleContentLoader",
     )
