@@ -30,11 +30,17 @@ jobs:
     timeout-minutes: 40
 
     steps:
+      - name: Checkout this repo (for tools/)
+        uses: actions/checkout@v4
+        with:
+          path: self
+          clean: false
+
       - name: Checkout FongMi/media
         uses: actions/checkout@v4
         with:
           repository: FongMi/media
-          ref: ${{ inputs.media_ref || 'release' }}
+          ref: ${{ inputs.media_ref || 'release-1.11.0-fongmi' }}
           path: media
 
       - name: Record source revision
@@ -78,6 +84,18 @@ jobs:
             ~/.gradle/wrapper
           key: media3-gradle-${{ hashFiles('media/gradle/libs.versions.toml') }}
           restore-keys: media3-gradle-
+
+      - name: Patch media3 (补齐作者私有扩展)
+        run: |
+          python3 self/tools/patch_media3.py media
+          echo "--- 校验补丁生效 ---"
+          test -f media/libraries/common/src/main/java/androidx/media3/common/DiscMenuState.java
+          test -f media/libraries/common/src/main/java/androidx/media3/common/DiscMenuController.java
+          test -f media/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/iso/IsoDiscPreparation.java
+          grep -q "getDiscMenuState" media/libraries/common/src/main/java/androidx/media3/common/Player.java
+          grep -q "onDiscMenuStateChanged" media/libraries/common/src/main/java/androidx/media3/common/Player.java
+          grep -q "setDiscMenuController" media/libraries/ui/src/main/java/androidx/media3/ui/PlayerView.java
+          echo "补丁校验通过"
 
       - name: Build media3 modules
         working-directory: media
@@ -136,13 +154,6 @@ jobs:
           path: out/*.aar
           if-no-files-found: error
           retention-days: 90
-
-      - name: Checkout this repo (for committing)
-        if: ${{ inputs.commit }}
-        uses: actions/checkout@v4
-        with:
-          path: self
-          clean: false
 
       - name: Commit aars into app/libs
         if: ${{ inputs.commit }}
