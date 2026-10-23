@@ -759,11 +759,13 @@ public final class BdjRuntime {
 COLOR_TONE_ADJUST_EFFECT = '''package androidx.media3.effect;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
 
 /**
  * Carries a colour-tone adjustment.
  *
- * <p>The shader is a no-op in this build: the adjustment is recorded but not applied to the frame.
+ * <p>No shader is produced in this build: the adjustment is recorded but never applied to the
+ * frame, so playback stays on the untouched path.
  */
 public final class ColorToneAdjustEffect implements GlEffect {
 
@@ -777,27 +779,10 @@ public final class ColorToneAdjustEffect implements GlEffect {
     return adjustment;
   }
 
+  @Nullable
   @Override
   public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
-    return new NoOpShaderProgram();
-  }
-
-  /** Shader program that leaves the frame untouched. */
-  static final class NoOpShaderProgram extends GlShaderProgram {
-
-    @Override
-    public boolean isNoOp(int inputWidth, int inputHeight) {
-      return true;
-    }
-
-    @Override
-    public void configure(int inputWidth, int inputHeight) {}
-
-    @Override
-    public void drawFrame(int inputTexId, long presentationTimeUs) {}
-
-    @Override
-    public void release() {}
+    return null;
   }
 }
 '''
@@ -805,11 +790,13 @@ public final class ColorToneAdjustEffect implements GlEffect {
 DETAIL_ADJUST_EFFECT = '''package androidx.media3.effect;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
 
 /**
  * Carries a detail (sharpness) adjustment.
  *
- * <p>The shader is a no-op in this build: the adjustment is recorded but not applied to the frame.
+ * <p>No shader is produced in this build: the adjustment is recorded but never applied to the
+ * frame, so playback stays on the untouched path.
  */
 public final class DetailAdjustEffect implements GlEffect {
 
@@ -823,9 +810,10 @@ public final class DetailAdjustEffect implements GlEffect {
     return adjustment;
   }
 
+  @Nullable
   @Override
   public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
-    return new ColorToneAdjustEffect.NoOpShaderProgram();
+    return null;
   }
 }
 '''
