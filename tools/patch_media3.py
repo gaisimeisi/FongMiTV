@@ -181,7 +181,104 @@ public final class IsoDiscPreparation {
 }
 '''
 
-# ─────────────────────────── 插入片段 ───────────────────────────
+# ─────────────────────────── 缺失类补全（第 1 批：枚举/常量） ───────────────────────────
+
+COMMON_DECODER_MODE = '''package androidx.media3.common;
+
+/** How a track should be decoded. */
+public enum DecoderMode {
+  /** Let the player choose. */
+  AUTO,
+  /** Force the platform decoder (MediaCodec). */
+  HARDWARE,
+  /** Force software decoding through FFmpeg. */
+  FFMPEG
+}
+'''
+
+EXOPLAYER_DECODER_MODE = '''package androidx.media3.exoplayer;
+
+/** Decoder selection stored by the ExoPlayer stack. */
+public enum DecoderMode {
+  /** Platform decoder. */
+  MEDIACODEC,
+  /** FFmpeg software decoder. */
+  FFMPEG;
+
+  /** Converts to the app-facing representation. */
+  public androidx.media3.common.DecoderMode toCommonDecoderMode() {
+    return this == FFMPEG
+        ? androidx.media3.common.DecoderMode.FFMPEG
+        : androidx.media3.common.DecoderMode.HARDWARE;
+  }
+
+  /** Converts from the app-facing representation. */
+  public static DecoderMode fromCommonDecoderMode(androidx.media3.common.DecoderMode mode) {
+    if (mode == androidx.media3.common.DecoderMode.FFMPEG) {
+      return FFMPEG;
+    }
+    return MEDIACODEC;
+  }
+}
+'''
+
+AUDIO_CHANNEL_MODE = '''package androidx.media3.common.audio;
+
+/** Output channel layout selection. */
+public final class AudioChannelMode {
+
+  /** Let the player keep the source layout. */
+  public static final int AUTO = 0;
+
+  /** Downmix everything to mono. */
+  public static final int MONO = 1;
+
+  /** Force stereo output. */
+  public static final int STEREO = 2;
+
+  /** Swap left and right channels. */
+  public static final int SWAP = 3;
+
+  private AudioChannelMode() {}
+
+  /** Clamps an arbitrary value into the valid range. */
+  public static int clamp(int mode) {
+    return (mode >= AUTO && mode <= SWAP) ? mode : AUTO;
+  }
+
+  /** Returns whether the mode means "leave it alone". */
+  public static boolean isAuto(int mode) {
+    return clamp(mode) == AUTO;
+  }
+
+  /** Returns whether the mode can be applied to the given channel count. */
+  public static boolean isAvailable(int mode, int channelCount) {
+    switch (clamp(mode)) {
+      case MONO:
+        return channelCount > 1;
+      case STEREO:
+      case SWAP:
+        return channelCount >= 2;
+      case AUTO:
+      default:
+        return false;
+    }
+  }
+
+  /** Resolves a mode against the actual channel count, falling back to AUTO. */
+  public static int resolve(int mode, int channelCount) {
+    int clamped = clamp(mode);
+    return isAvailable(clamped, channelCount) ? clamped : AUTO;
+  }
+
+  /** Returns whether the mode supports a left/right balance setting. */
+  public static boolean canBalance(int mode) {
+    return clamp(mode) == STEREO;
+  }
+}
+'''
+
+
 
 PLAYER_METHODS = '''  /**
    * Returns the current disc menu state.
@@ -319,6 +416,17 @@ def main():
         PLAYERVIEW_METHODS,
         "setDiscMenuController(@Nullable DiscMenuController",
     )
+
+    exoplayer = f"{root}/libraries/exoplayer/src/main/java/androidx/media3/exoplayer"
+
+    print("[7/9] 新增 common.DecoderMode")
+    write_if_absent(f"{common}/DecoderMode.java", COMMON_DECODER_MODE, "enum DecoderMode")
+
+    print("[8/9] 新增 exoplayer.DecoderMode")
+    write_if_absent(f"{exoplayer}/DecoderMode.java", EXOPLAYER_DECODER_MODE, "enum DecoderMode")
+
+    print("[9/9] 新增 AudioChannelMode")
+    write_if_absent(f"{common}/audio/AudioChannelMode.java", AUDIO_CHANNEL_MODE, "class AudioChannelMode")
 
     print("\n补丁完成。")
 
