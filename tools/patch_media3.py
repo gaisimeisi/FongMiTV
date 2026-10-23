@@ -455,21 +455,20 @@ public final class DanmakuPlayerViewController {
 }
 '''
 
-LIBASS_PLAYER_VIEW_CONTROLLER = '''package androidx.media3.ui.libass;
+LIBASS_PLAYER_VIEW_CONTROLLER = '''package androidx.media3.exoplayer.ui.libass;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.libass.LibassPlaybackSession;
 import androidx.media3.exoplayer.libass.LibassSubtitleController;
-import androidx.media3.ui.PlayerView;
-import androidx.media3.ui.SubtitleView;
 import java.util.function.Consumer;
 
 /**
- * Binds the libass subtitle surface to a {@link PlayerView}.
+ * Binds the libass subtitle surface to a player view.
  *
- * <p>This build keeps the Media3 subtitle view in place, so {@link #bind} does not replace it and
- * subtitle styling falls back to the default renderer.
+ * <p>The view type is {@code Object} on purpose: this module cannot depend on {@code media3-ui},
+ * and consumers pass their {@code PlayerView} directly. This build keeps the Media3 subtitle view
+ * in place, so {@link #bind} does not replace anything.
  */
 public final class LibassPlayerViewController {
 
@@ -480,12 +479,11 @@ public final class LibassPlayerViewController {
 
   public void close() {}
 
-  public void bind(PlayerView playerView) {}
+  public void bind(@Nullable Object playerView) {}
 
   public void setStyleOverride(@Nullable Object style, @Nullable String fontFamily) {}
 
-  public void setSecondarySubtitleViewConfigurator(
-      @Nullable Consumer<SubtitleView> configurator) {}
+  public void setSecondarySubtitleViewConfigurator(@Nullable Consumer<?> configurator) {}
 }
 '''
 
