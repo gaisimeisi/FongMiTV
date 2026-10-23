@@ -181,6 +181,273 @@ public final class IsoDiscPreparation {
 }
 '''
 
+SECONDARY_TEXT_TRACK_SELECTOR = '''package androidx.media3.exoplayer.trackselection;
+
+import android.content.Context;
+
+/** Track selector that also carries a secondary text track. */
+public class SecondaryTextTrackSelector extends DefaultTrackSelector {
+
+  public SecondaryTextTrackSelector(Context context) {
+    super(context);
+  }
+
+  /** Factory that wraps another selector factory. */
+  public static final class Factory implements TrackSelector.Factory {
+
+    private final TrackSelector.Factory delegate;
+
+    public Factory(TrackSelector.Factory delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public TrackSelector createTrackSelector(Context context) {
+      return delegate.createTrackSelector(context);
+    }
+  }
+}
+'''
+
+DECODE_TRACK_SELECTOR = '''package androidx.media3.exoplayer.trackselection;
+
+import android.content.Context;
+
+/** Track selector used by {@code DecoderManager}. */
+public class DecodeTrackSelector extends DefaultTrackSelector {
+
+  public DecodeTrackSelector(Context context) {
+    super(context);
+  }
+}
+'''
+
+DECODER_MANAGER = '''package androidx.media3.exoplayer;
+
+import android.content.Context;
+import androidx.annotation.Nullable;
+import androidx.media3.exoplayer.trackselection.DecodeTrackSelector;
+
+/** Tracks the requested audio/video decoder mode per playback. */
+public final class DecoderManager {
+
+  private DecoderMode audioMode;
+  private DecoderMode videoMode;
+
+  @Nullable private ExoPlayer player;
+
+  public DecoderManager(DecoderMode audioMode, DecoderMode videoMode) {
+    this.audioMode = audioMode;
+    this.videoMode = videoMode;
+  }
+
+  public void attach(ExoPlayer player) {
+    this.player = player;
+  }
+
+  public void detach() {
+    this.player = null;
+  }
+
+  public DecoderMode getAudioMode() {
+    return audioMode;
+  }
+
+  public DecoderMode getVideoMode() {
+    return videoMode;
+  }
+
+  public void selectAudioDecoder(DecoderMode mode) {
+    this.audioMode = mode;
+  }
+
+  public void selectVideoDecoder(DecoderMode mode) {
+    this.videoMode = mode;
+  }
+
+  public void setDecoderModes(DecoderMode audioMode, DecoderMode videoMode) {
+    this.audioMode = audioMode;
+    this.videoMode = videoMode;
+  }
+
+  /** Creates the track selector that applies the requested decoder modes. */
+  public DecodeTrackSelector createTrackSelector(Context context) {
+    return new DecodeTrackSelector(context);
+  }
+}
+'''
+
+LIBASS_SUBTITLE_CONTROLLER = '''package androidx.media3.exoplayer.libass;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.text.SubtitleSelectionState;
+import androidx.media3.exoplayer.text.SecondaryTextOutput;
+import androidx.media3.exoplayer.trackselection.SecondaryTextTrackSelector;
+
+/**
+ * Coordinates subtitle track selection with the libass session.
+ *
+ * <p>Without a native libass pipeline the controller only records the primary/secondary selection
+ * intent; rendering itself stays on the Media3 text renderer.
+ */
+public final class LibassSubtitleController {
+
+  @Nullable private TrackSelectionOverride primary;
+  @Nullable private TrackSelectionOverride secondary;
+  private boolean autoSecondaryEnabled = true;
+
+  public LibassSubtitleController(
+      Player player,
+      LibassPlaybackSession session,
+      SecondaryTextTrackSelector.Factory selectorFactory,
+      SecondaryTextOutput output) {}
+
+  /** Returns the current selection state. */
+  public SubtitleSelectionState getSubtitleSelectionState() {
+    return new SubtitleSelectionState(primary, secondary);
+  }
+
+  public void setSecondaryTextTrackSelectionOverride(@Nullable TrackSelectionOverride selection) {
+    this.secondary = selection;
+  }
+
+  public void setSecondaryTextTrackAutoSelectionEnabled(boolean enabled) {
+    this.autoSecondaryEnabled = enabled;
+  }
+
+  public boolean isSecondaryTextTrackAutoSelectionEnabled() {
+    return autoSecondaryEnabled;
+  }
+
+  public void close() {
+    primary = null;
+    secondary = null;
+  }
+}
+'''
+
+DRF_SET_DECODER_MANAGER = '''  private DecoderManager decoderManager;
+
+  /**
+   * Sets the decoder manager used to pick audio/video decoders.
+   *
+   * @param decoderManager The decoder manager.
+   * @return This factory, for convenience.
+   */
+  public final DefaultRenderersFactory setDecoderManager(DecoderManager decoderManager) {
+    this.decoderManager = decoderManager;
+    return this;
+  }
+
+'''
+
+# ─────────────────────────── 缺失类补全（第 6 批：解码 / 次要字幕 / DRM） ───────────────────────────
+
+LOCAL_CLEAR_KEY_LICENSE = '''package androidx.media3.common.util;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.MediaItem;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/** Parses Clearkey licence payloads of the form {@code kid:key,kid:key}. */
+public final class LocalClearKeyLicense {
+
+  private LocalClearKeyLicense() {}
+
+  /** Parses a licence string into a key-id map. Returns an empty map when unparsable. */
+  public static Map<String, String> parse(@Nullable String license) {
+    if (license == null || license.isEmpty()) return Collections.emptyMap();
+    if (!license.contains(":")) return Collections.emptyMap();
+    Map<String, String> out = new LinkedHashMap<>();
+    for (String pair : license.split(",")) {
+      String[] kv = pair.split(":");
+      if (kv.length != 2) continue;
+      String kid = kv[0].trim();
+      String key = kv[1].trim();
+      if (!kid.isEmpty() && !key.isEmpty()) out.put(kid, key);
+    }
+    return out;
+  }
+
+  /** Parses the licence carried by a DRM configuration. */
+  public static Map<String, String> parse(@Nullable MediaItem.DrmConfiguration configuration) {
+    if (configuration == null) return Collections.emptyMap();
+    if (configuration.licenseUri == null) return Collections.emptyMap();
+    return parse(configuration.licenseUri.toString());
+  }
+}
+'''
+
+MPV_DECODER_MODE = '''package androidx.media3.mpvplayer;
+
+/** Video decoder selection for the mpv engine. */
+public enum MpvDecoderMode {
+  /** Let mpv choose. */
+  AUTO,
+  /** Hardware decoding via the platform. */
+  HARDWARE,
+  /** Software decoding. */
+  SOFTWARE;
+
+  /** Converts from the app-facing Media3 representation. */
+  public static MpvDecoderMode fromCommonDecoderMode(androidx.media3.common.DecoderMode mode) {
+    if (mode == null) return AUTO;
+    switch (mode) {
+      case HARDWARE:
+        return HARDWARE;
+      case FFMPEG:
+        return SOFTWARE;
+      case AUTO:
+      default:
+        return AUTO;
+    }
+  }
+}
+'''
+
+SECONDARY_TEXT_OUTPUT = '''package androidx.media3.exoplayer.text;
+
+import androidx.media3.common.C;
+import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueGroup;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/** Collects cues produced by a secondary text renderer. */
+public final class SecondaryTextOutput implements TextOutput {
+
+  private final List<Cue> cues = Collections.synchronizedList(new ArrayList<>());
+
+  @Override
+  public void onCues(CueGroup cueGroup) {
+    cues.clear();
+    if (cueGroup != null) cues.addAll(cueGroup.cues);
+  }
+
+  @Override
+  public void onCues(List<Cue> cueList) {
+    cues.clear();
+    if (cueList != null) cues.addAll(cueList);
+  }
+
+  /** Returns a snapshot of the current cues. */
+  public List<Cue> getCues() {
+    synchronized (cues) {
+      return new ArrayList<>(cues);
+    }
+  }
+
+  public void clear() {
+    cues.clear();
+  }
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 5 批：libass 基础 + 字幕转录） ───────────────────────────
 
 LIBASS_CONFIGURATION = '''package androidx.media3.exoplayer.libass;
@@ -331,6 +598,11 @@ public final class LibassPlaybackSession {
   public void setSecondaryBottomPositionFraction(float fraction) {}
 
   public void setFontScale(float scale, boolean apply) {}
+
+  /** Returns the renderer used for disc-menu navigation playback. */
+  public androidx.media3.exoplayer.Renderer createClockRenderer() {
+    return null;
+  }
 
   public LibassConfiguration getConfiguration() {
     return configuration;
@@ -1217,6 +1489,51 @@ def main():
         f"{exoplayer}/text/SubtitleTranscriptParserFactory.java",
         SUBTITLE_TRANSCRIPT_PARSER_FACTORY,
         "class SubtitleTranscriptParserFactory",
+    )
+
+    print("[23/30] 新增 LocalClearKeyLicense")
+    write_if_absent(
+        f"{common}/util/LocalClearKeyLicense.java", LOCAL_CLEAR_KEY_LICENSE, "class LocalClearKeyLicense"
+    )
+
+    print("[24/30] 新增 MpvDecoderMode")
+    write_if_absent(f"{mpvplayer}/MpvDecoderMode.java", MPV_DECODER_MODE, "enum MpvDecoderMode")
+
+    print("[25/30] 新增 SecondaryTextOutput")
+    write_if_absent(
+        f"{exoplayer}/text/SecondaryTextOutput.java", SECONDARY_TEXT_OUTPUT, "class SecondaryTextOutput"
+    )
+
+    print("[26/30] 新增 SecondaryTextTrackSelector")
+    write_if_absent(
+        f"{exoplayer}/trackselection/SecondaryTextTrackSelector.java",
+        SECONDARY_TEXT_TRACK_SELECTOR,
+        "class SecondaryTextTrackSelector",
+    )
+
+    print("[27/30] 新增 DecodeTrackSelector")
+    write_if_absent(
+        f"{exoplayer}/trackselection/DecodeTrackSelector.java",
+        DECODE_TRACK_SELECTOR,
+        "class DecodeTrackSelector",
+    )
+
+    print("[28/30] 新增 DecoderManager")
+    write_if_absent(f"{exoplayer}/DecoderManager.java", DECODER_MANAGER, "class DecoderManager")
+
+    print("[29/30] 新增 LibassSubtitleController")
+    write_if_absent(
+        f"{exoplayer}/libass/LibassSubtitleController.java",
+        LIBASS_SUBTITLE_CONTROLLER,
+        "class LibassSubtitleController",
+    )
+
+    print("[30/30] 扩展 DefaultRenderersFactory")
+    insert_before(
+        f"{exoplayer}/DefaultRenderersFactory.java",
+        "  public final DefaultRenderersFactory setEnableDecoderFallback(boolean enableDecoderFallback) {",
+        DRF_SET_DECODER_MANAGER,
+        "setDecoderManager(DecoderManager",
     )
 
     print("\n补丁完成。")
