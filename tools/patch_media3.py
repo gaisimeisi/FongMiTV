@@ -1730,6 +1730,9 @@ public final class SubtitleContent {
   /** Parsed cues, in playback order. */
   public final List<Cue> cues;
 
+  /** Parsed subtitle lines, used by the subtitle list panel. */
+  public final List<Entry> entries;
+
   /** MIME type the cues were parsed from, when known. */
   @Nullable public final String mimeType;
 
@@ -1742,6 +1745,15 @@ public final class SubtitleContent {
 
   public SubtitleContent(List<Cue> cues, @Nullable String mimeType, State state) {
     this.cues = cues == null ? Collections.emptyList() : cues;
+    this.entries = Collections.emptyList();
+    this.mimeType = mimeType;
+    this.state = state == null ? State.EMPTY : state;
+  }
+
+  public SubtitleContent(
+      List<Cue> cues, List<Entry> entries, @Nullable String mimeType, State state) {
+    this.cues = cues == null ? Collections.emptyList() : cues;
+    this.entries = entries == null ? Collections.emptyList() : entries;
     this.mimeType = mimeType;
     this.state = state == null ? State.EMPTY : state;
   }
@@ -2019,6 +2031,8 @@ SUBTITLE_SELECTION_STATE = '''package androidx.media3.common.text;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.TrackSelectionOverride;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Which text track is currently primary, and which extra track is shown as secondary.
@@ -2031,23 +2045,48 @@ public final class SubtitleSelectionState {
   /** No track is selected. */
   public static final SubtitleSelectionState EMPTY = new SubtitleSelectionState(null, null);
 
-  @Nullable private final TrackSelectionOverride primary;
-  @Nullable private final TrackSelectionOverride secondary;
+  /** Currently selected primary track. */
+  @Nullable public final TrackSelectionOverride primarySelection;
+
+  /** Currently active secondary track. */
+  @Nullable public final TrackSelectionOverride activeSecondarySelection;
+
+  /** The secondary track that was promoted to primary. */
+  @Nullable public final TrackSelectionOverride secondaryPromotedToPrimary;
+
+  /** Secondary tracks that are candidates for promotion. */
+  public final List<TrackSelectionOverride> secondaryCandidates;
+
+  /** The secondary track the user explicitly asked for. */
+  @Nullable public final TrackSelectionOverride requestedSecondarySelection;
 
   public SubtitleSelectionState(
       @Nullable TrackSelectionOverride primary, @Nullable TrackSelectionOverride secondary) {
-    this.primary = primary;
-    this.secondary = secondary;
+    this(primary, secondary, null, Collections.emptyList(), null);
+  }
+
+  public SubtitleSelectionState(
+      @Nullable TrackSelectionOverride primarySelection,
+      @Nullable TrackSelectionOverride activeSecondarySelection,
+      @Nullable TrackSelectionOverride secondaryPromotedToPrimary,
+      List<TrackSelectionOverride> secondaryCandidates,
+      @Nullable TrackSelectionOverride requestedSecondarySelection) {
+    this.primarySelection = primarySelection;
+    this.activeSecondarySelection = activeSecondarySelection;
+    this.secondaryPromotedToPrimary = secondaryPromotedToPrimary;
+    this.secondaryCandidates =
+        secondaryCandidates == null ? Collections.emptyList() : secondaryCandidates;
+    this.requestedSecondarySelection = requestedSecondarySelection;
   }
 
   /** Returns whether the given override is the primary subtitle track. */
   public boolean isPrimary(@Nullable TrackSelectionOverride selection) {
-    return selection != null && selection.equals(primary);
+    return selection != null && selection.equals(primarySelection);
   }
 
   /** Returns whether the given override is an active secondary subtitle track. */
   public boolean isActiveSecondary(@Nullable TrackSelectionOverride selection) {
-    return selection != null && selection.equals(secondary);
+    return selection != null && selection.equals(activeSecondarySelection);
   }
 }
 '''
@@ -2210,11 +2249,14 @@ public final class AudioChannelMode {
   /** Swap left and right channels. */
   public static final int SWAP = 3;
 
+  /** Reverse the channel order. */
+  public static final int REVERSE = 4;
+
   private AudioChannelMode() {}
 
   /** Clamps an arbitrary value into the valid range. */
   public static int clamp(int mode) {
-    return (mode >= AUTO && mode <= SWAP) ? mode : AUTO;
+    return (mode >= AUTO && mode <= REVERSE) ? mode : AUTO;
   }
 
   /** Returns whether the mode means "leave it alone". */
@@ -2229,6 +2271,7 @@ public final class AudioChannelMode {
         return channelCount > 1;
       case STEREO:
       case SWAP:
+      case REVERSE:
         return channelCount >= 2;
       case AUTO:
       default:
