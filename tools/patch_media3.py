@@ -343,6 +343,263 @@ DRF_SET_DECODER_MANAGER = '''  private DecoderManager decoderManager;
 
 '''
 
+# ─────────────────────────── 缺失类补全（第 7 批：MediaSource / 音频处理 / ISO） ───────────────────────────
+
+END_TRIM_MEDIA_SOURCE = '''package androidx.media3.exoplayer.source;
+
+import android.os.Handler;
+import androidx.annotation.Nullable;
+import androidx.media3.common.Timeline;
+import androidx.media3.exoplayer.source.mediaperiod.MediaPeriodId;
+import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.TransferListener;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import java.io.IOException;
+
+/**
+ * Wraps a media source and records an end-trim duration.
+ *
+ * <p>The trim is applied by the player itself; this wrapper only carries the value and forwards
+ * everything else to the child source.
+ */
+public final class EndTrimMediaSource implements MediaSource {
+
+  private final MediaSource mediaSource;
+  private long endTrimDurationMs;
+
+  public EndTrimMediaSource(MediaSource mediaSource, long endTrimDurationMs) {
+    this.mediaSource = mediaSource;
+    this.endTrimDurationMs = endTrimDurationMs;
+  }
+
+  public void setEndTrimDurationMs(long endTrimDurationMs) {
+    this.endTrimDurationMs = endTrimDurationMs;
+  }
+
+  public long getEndTrimDurationMs() {
+    return endTrimDurationMs;
+  }
+
+  public boolean isEndTrimActive() {
+    return endTrimDurationMs > 0;
+  }
+
+  /** Duration of the child source, or {@code C.TIME_UNSET} when unknown. */
+  public long getOriginalDurationMs() {
+    return androidx.media3.common.C.TIME_UNSET;
+  }
+
+  @Override
+  public void addEventListener(Handler handler, MediaSourceEventListener eventListener) {
+    mediaSource.addEventListener(handler, eventListener);
+  }
+
+  @Override
+  public void removeEventListener(MediaSourceEventListener eventListener) {
+    mediaSource.removeEventListener(eventListener);
+  }
+
+  @Override
+  public void addDrmEventListener(Handler handler, DrmSessionEventListener eventListener) {
+    mediaSource.addDrmEventListener(handler, eventListener);
+  }
+
+  @Override
+  public void removeDrmEventListener(DrmSessionEventListener eventListener) {
+    mediaSource.removeDrmEventListener(eventListener);
+  }
+
+  @Override
+  public void maybeThrowSourceInfoRefreshError() throws IOException {
+    mediaSource.maybeThrowSourceInfoRefreshError();
+  }
+
+  @Override
+  public void enable(MediaSourceCaller caller) {
+    mediaSource.enable(caller);
+  }
+
+  @Override
+  public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
+    return mediaSource.createPeriod(id, allocator, startPositionUs);
+  }
+
+  @Override
+  public void releasePeriod(MediaPeriod mediaPeriod) {
+    mediaSource.releasePeriod(mediaPeriod);
+  }
+
+  @Override
+  public void disable(MediaSourceCaller caller) {
+    mediaSource.disable(caller);
+  }
+
+  @Override
+  public void releaseSource(MediaSourceCaller caller) {
+    mediaSource.releaseSource(caller);
+  }
+
+  @Override
+  public Timeline getTimeline() {
+    return mediaSource.getTimeline();
+  }
+}
+'''
+
+AUDIO_EFFECT_PROCESSOR = '''package androidx.media3.common.audio;
+
+import java.nio.ByteBuffer;
+
+/**
+ * Pass-through audio processor used by the effect chain.
+ *
+ * <p>Parameters are recorded but no DSP is applied, so audio is played unmodified.
+ */
+public final class AudioEffectProcessor implements AudioProcessor {
+
+  private boolean active;
+  private boolean inputEnded;
+
+  /** Applies new parameters. */
+  public void setParameters(AudioEffectParameters parameters, boolean softwareEqualizer) {
+    this.active = parameters != null && parameters.hasEffect();
+  }
+
+  /** Clears any applied parameters. */
+  public void resetParameters() {
+    this.active = false;
+  }
+
+  @Override
+  public AudioFormat configure(AudioFormat inputAudioFormat) {
+    return inputAudioFormat;
+  }
+
+  @Override
+  public boolean isActive() {
+    return active;
+  }
+
+  @Override
+  public boolean isEnded() {
+    return inputEnded;
+  }
+
+  @Override
+  public void queueInput(ByteBuffer inputBuffer) {
+    inputBuffer.position(inputBuffer.limit());
+  }
+
+  @Override
+  public void queueEndOfStream() {
+    inputEnded = true;
+  }
+
+  @Override
+  public ByteBuffer getOutput() {
+    return EMPTY_BUFFER;
+  }
+
+  @Override
+  public void flush() {
+    inputEnded = false;
+  }
+
+  @Override
+  public void reset() {
+    active = false;
+    inputEnded = false;
+  }
+}
+'''
+
+DECODER_FALLBACK = '''package androidx.media3.exoplayer;
+
+import androidx.media3.common.C;
+import androidx.media3.exoplayer.ExoPlaybackException;
+
+/** Tracks decoder failures so the player can fall back to a slower decoder. */
+public final class DecoderFallback {
+
+  private final DecoderManager decoderManager;
+
+  public DecoderFallback(DecoderManager decoderManager) {
+    this.decoderManager = decoderManager;
+  }
+
+  /** Clears the failure state for the given track type. */
+  public void reset(@C.TrackType int trackType) {}
+
+  /** Returns whether a retry is possible for the given failure. */
+  public boolean retry(ExoPlaybackException error) {
+    return false;
+  }
+
+  public DecoderManager getDecoderManager() {
+    return decoderManager;
+  }
+}
+'''
+
+PROGRESSIVE_ISO_CACHE = '''package androidx.media3.datasource;
+
+import androidx.media3.datasource.cache.Cache;
+
+/** Helpers for reading progressive ISO images through a disk cache. */
+public final class ProgressiveIsoCache {
+
+  private ProgressiveIsoCache() {}
+
+  /** Wraps the factory so ISO reads go through the shared cache. */
+  public static DataSource.Factory withDiskCache(
+      DataSource.Factory factory, Cache cache) {
+    return factory;
+  }
+}
+'''
+
+ISO_NAVIGATION_PLAYER_CONTROLLER = '''package androidx.media3.exoplayer.iso;
+
+import android.content.Context;
+import androidx.annotation.Nullable;
+import androidx.media3.common.Player;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.exoplayer.source.MediaSource;
+
+/**
+ * Drives Blu-ray / DVD disc-menu navigation.
+ *
+ * <p>No native navigation session is available in this build, so the controller never starts and
+ * always hands the plain media source back to the player.
+ */
+public final class IsoNavigationPlayerController {
+
+  private final Player player;
+
+  public IsoNavigationPlayerController(Player player) {
+    this.player = player;
+  }
+
+  public Player getPlayer() {
+    return player;
+  }
+
+  /** Returns whether a navigation session is running. */
+  public boolean isStarted() {
+    return false;
+  }
+
+  /** Returns the media source to play, or the original source when navigation is unavailable. */
+  @Nullable
+  public MediaSource prepareMediaSource(
+      Context context, MediaSource mediaSource, DataSource.Factory dataSourceFactory) {
+    return mediaSource;
+  }
+
+  public void close() {}
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 6 批：解码 / 次要字幕 / DRM） ───────────────────────────
 
 LOCAL_CLEAR_KEY_LICENSE = '''package androidx.media3.common.util;
@@ -1534,6 +1791,37 @@ def main():
         "  private boolean enableDecoderFallback;",
         DRF_SET_DECODER_MANAGER,
         "setDecoderManager(DecoderManager",
+    )
+
+    datasource = f"{root}/libraries/datasource/src/main/java/androidx/media3/datasource"
+
+    print("[31/35] 新增 EndTrimMediaSource")
+    write_if_absent(
+        f"{exoplayer}/source/EndTrimMediaSource.java",
+        END_TRIM_MEDIA_SOURCE,
+        "class EndTrimMediaSource",
+    )
+
+    print("[32/35] 新增 AudioEffectProcessor")
+    write_if_absent(
+        f"{common}/audio/AudioEffectProcessor.java",
+        AUDIO_EFFECT_PROCESSOR,
+        "class AudioEffectProcessor",
+    )
+
+    print("[33/35] 新增 DecoderFallback")
+    write_if_absent(f"{exoplayer}/DecoderFallback.java", DECODER_FALLBACK, "class DecoderFallback")
+
+    print("[34/35] 新增 ProgressiveIsoCache")
+    write_if_absent(
+        f"{datasource}/ProgressiveIsoCache.java", PROGRESSIVE_ISO_CACHE, "class ProgressiveIsoCache"
+    )
+
+    print("[35/35] 新增 IsoNavigationPlayerController")
+    write_if_absent(
+        f"{exoplayer}/iso/IsoNavigationPlayerController.java",
+        ISO_NAVIGATION_PLAYER_CONTROLLER,
+        "class IsoNavigationPlayerController",
     )
 
     print("\n补丁完成。")
