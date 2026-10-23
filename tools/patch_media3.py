@@ -2879,7 +2879,7 @@ def main():
     mso = f"{mpvplayer}/MpvSubtitleOptions.java"
     insert_before(
         mso,
-        "    public Builder setScale(",
+        "    private double position = 100.0;",
         MPV_SUBTITLE_OPTION_FIELDS + MPV_SUBTITLE_OPTION_METHODS,
         "setBitmapSubtitleBrightness(float",
     )
