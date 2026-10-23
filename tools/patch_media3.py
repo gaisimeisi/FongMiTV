@@ -2098,8 +2098,12 @@ def main():
     )
 
     print("[40/43] 新增 LibassPlayerViewController")
+    stale_ui = f"{ui}/libass/LibassPlayerViewController.java"
+    if os.path.exists(stale_ui):
+        os.remove(stale_ui)
+        print(f"  - 移除旧位置: {stale_ui}")
     write_if_absent(
-        f"{ui}/libass/LibassPlayerViewController.java",
+        f"{exoplayer}/ui/libass/LibassPlayerViewController.java",
         LIBASS_PLAYER_VIEW_CONTROLLER,
         "class LibassPlayerViewController",
     )
