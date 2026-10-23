@@ -654,13 +654,8 @@ public final class ContentTypeResolvingMediaSource implements MediaSource {
     }
 
     @Override
-    public Factory setDrmSessionManagerProvider(Object provider) {
-      return this;
-    }
-
-    @Override
-    public Factory setLoadErrorHandlingPolicy(Object policy) {
-      return this;
+    public int[] getSupportedTypes() {
+      return delegate.getSupportedTypes();
     }
 
     public DataSource.Factory getDataSourceFactory() {
