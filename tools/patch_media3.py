@@ -349,10 +349,8 @@ END_TRIM_MEDIA_SOURCE = '''package androidx.media3.exoplayer.source;
 
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.media3.common.Timeline;
-import androidx.media3.exoplayer.source.mediaperiod.MediaPeriodId;
+import androidx.media3.common.MediaItem;
 import androidx.media3.exoplayer.upstream.Allocator;
-import androidx.media3.exoplayer.upstream.TransferListener;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import java.io.IOException;
 
@@ -440,8 +438,8 @@ public final class EndTrimMediaSource implements MediaSource {
   }
 
   @Override
-  public Timeline getTimeline() {
-    return mediaSource.getTimeline();
+  public MediaItem getMediaItem() {
+    return mediaSource.getMediaItem();
   }
 }
 '''
