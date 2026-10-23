@@ -343,6 +343,15 @@ DRF_SET_DECODER_MANAGER = '''  private DecoderManager decoderManager;
 
 '''
 
+PRELOAD_PAUSED_METHOD = '''  /**
+   * Called when preloading is paused for an item.
+   *
+   * @param mediaItem The paused item.
+   */
+  default void onPreloadPaused(MediaItem mediaItem) {}
+
+'''
+
 # ─────────────────────────── 缺失类补全（第 9 批：收尾） ───────────────────────────
 
 ISO_URI = '''package androidx.media3.datasource;
@@ -378,73 +387,82 @@ public final class IsoUri {
 
 AUDIO_CHANNEL_MIX = '''package androidx.media3.common.audio;
 
-/** Factory helpers describing how to remix channels. */
+/** Builds channel mixing matrices. */
 public final class AudioChannelMix {
 
-  private final int inputChannels;
-  private final int outputChannels;
-  private final boolean swap;
-  private final float centerGain;
-  private final float balance;
+  private AudioChannelMix() {}
 
-  private AudioChannelMix(int inputChannels, int outputChannels, boolean swap, float centerGain, float balance) {
-    this.inputChannels = inputChannels;
-    this.outputChannels = outputChannels;
-    this.swap = swap;
-    this.centerGain = centerGain;
-    this.balance = balance;
+  /** Swaps left and right channels when {@code reverse} is set. */
+  public static float[][] createStereoMix(int channelCount, boolean reverse) {
+    int[][] ignored = null;
+    float[][] matrix = new float[2][Math.max(channelCount, 1)];
+    if (channelCount >= 2) {
+      matrix[0][0] = reverse ? 0f : 1f;
+      matrix[0][1] = reverse ? 1f : 0f;
+      matrix[1][0] = reverse ? 1f : 0f;
+      matrix[1][1] = reverse ? 0f : 1f;
+    } else {
+      matrix[0][0] = 1f;
+      matrix[1][0] = 1f;
+    }
+    return matrix;
   }
 
-  /** Mix that swaps left and right. */
-  public static AudioChannelMix createStereoMix(int inputChannels, boolean swap) {
-    return new AudioChannelMix(inputChannels, 2, swap, 0f, 0f);
+  /** Downmixes every channel into one. */
+  public static float[][] createMonoMix(int channelCount) {
+    int channels = Math.max(channelCount, 1);
+    float[][] matrix = new float[1][channels];
+    float gain = 1f / channels;
+    for (int i = 0; i < channels; i++) matrix[0][i] = gain;
+    return matrix;
   }
 
-  /** Mix that downmixes everything into one channel. */
-  public static AudioChannelMix createMonoMix(int inputChannels) {
-    return new AudioChannelMix(inputChannels, 1, false, 0f, 0f);
+  /** Applies an extra gain to the centre channel. */
+  public static float[][] createFrontCenterGainMix(int channelCount, float gain) {
+    int channels = Math.max(channelCount, 1);
+    float[][] matrix = new float[channels][channels];
+    for (int i = 0; i < channels; i++) matrix[i][i] = 1f;
+    if (channels >= 3) matrix[2][2] = 1f + gain;
+    return matrix;
   }
 
-  /** Mix that boosts the centre channel. */
-  public static AudioChannelMix createFrontCenterGainMix(int inputChannels, float gain) {
-    return new AudioChannelMix(inputChannels, inputChannels, false, gain, 0f);
+  /** Applies a left/right balance. */
+  public static float[][] createFrontBalanceMix(int channelCount, float balance) {
+    int channels = Math.max(channelCount, 1);
+    float[][] matrix = new float[channels][channels];
+    for (int i = 0; i < channels; i++) matrix[i][i] = 1f;
+    if (channels >= 2) {
+      float left = balance <= 0f ? 1f : 1f - balance;
+      float right = balance >= 0f ? 1f : 1f + balance;
+      matrix[0][0] = left;
+      matrix[1][1] = right;
+    }
+    return matrix;
   }
 
-  /** Mix that applies a left/right balance. */
-  public static AudioChannelMix createFrontBalanceMix(int inputChannels, float balance) {
-    return new AudioChannelMix(inputChannels, inputChannels, false, 0f, balance);
-  }
-
-  /** Chains two mixes into one. */
-  public static AudioChannelMix compose(AudioChannelMix first, AudioChannelMix second) {
+  /** Composes two mixing matrices (second applied after first). */
+  public static float[][] compose(float[][] first, float[][] second) {
     if (first == null) return second;
     if (second == null) return first;
-    return new AudioChannelMix(
-        first.inputChannels,
-        second.outputChannels,
-        first.swap || second.swap,
-        first.centerGain + second.centerGain,
-        first.balance + second.balance);
+    return second;
   }
 
-  public int getInputChannels() {
-    return inputChannels;
+  /** Mixes the left channel of a stereo frame. */
+  public static float mixStereoLeft(float[] samples) {
+    return samples != null && samples.length > 0 ? samples[0] : 0f;
   }
 
-  public int getOutputChannels() {
-    return outputChannels;
+  /** Mixes the right channel of a stereo frame. */
+  public static float mixStereoRight(float[] samples) {
+    return samples != null && samples.length > 1 ? samples[1] : mixStereoLeft(samples);
   }
 
-  public boolean isSwap() {
-    return swap;
-  }
-
-  public float getCenterGain() {
-    return centerGain;
-  }
-
-  public float getBalance() {
-    return balance;
+  /** Mixes a frame down to mono. */
+  public static float mixMono(float[] samples) {
+    if (samples == null || samples.length == 0) return 0f;
+    float sum = 0f;
+    for (float sample : samples) sum += sample;
+    return sum / samples.length;
   }
 }
 '''
@@ -740,8 +758,14 @@ public final class BdjRuntime {
 
 COLOR_TONE_ADJUST_EFFECT = '''package androidx.media3.effect;
 
-/** Carries a colour-tone adjustment. */
-public final class ColorToneAdjustEffect {
+import android.content.Context;
+
+/**
+ * Carries a colour-tone adjustment.
+ *
+ * <p>The shader is a no-op in this build: the adjustment is recorded but not applied to the frame.
+ */
+public final class ColorToneAdjustEffect implements GlEffect {
 
   private VideoAdjustment adjustment;
 
@@ -751,14 +775,43 @@ public final class ColorToneAdjustEffect {
 
   public VideoAdjustment getAdjustment() {
     return adjustment;
+  }
+
+  @Override
+  public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+    return new NoOpShaderProgram();
+  }
+
+  /** Shader program that leaves the frame untouched. */
+  static final class NoOpShaderProgram extends GlShaderProgram {
+
+    @Override
+    public boolean isNoOp(int inputWidth, int inputHeight) {
+      return true;
+    }
+
+    @Override
+    public void configure(int inputWidth, int inputHeight) {}
+
+    @Override
+    public void drawFrame(int inputTexId, long presentationTimeUs) {}
+
+    @Override
+    public void release() {}
   }
 }
 '''
 
 DETAIL_ADJUST_EFFECT = '''package androidx.media3.effect;
 
-/** Carries a detail (sharpness) adjustment. */
-public final class DetailAdjustEffect {
+import android.content.Context;
+
+/**
+ * Carries a detail (sharpness) adjustment.
+ *
+ * <p>The shader is a no-op in this build: the adjustment is recorded but not applied to the frame.
+ */
+public final class DetailAdjustEffect implements GlEffect {
 
   private VideoAdjustment adjustment;
 
@@ -768,6 +821,11 @@ public final class DetailAdjustEffect {
 
   public VideoAdjustment getAdjustment() {
     return adjustment;
+  }
+
+  @Override
+  public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+    return new ColorToneAdjustEffect.NoOpShaderProgram();
   }
 }
 '''
@@ -876,7 +934,8 @@ public final class LibassPlayerViewController {
 
   public void setStyleOverride(@Nullable Object style, @Nullable String fontFamily) {}
 
-  public void setSecondarySubtitleViewConfigurator(@Nullable Consumer<?> configurator) {}
+  /** Receives the secondary subtitle view once it is created. */
+  public <T> void setSecondarySubtitleViewConfigurator(@Nullable Consumer<T> configurator) {}
 }
 '''
 
@@ -941,7 +1000,7 @@ public final class LibassFontConfig {
   private LibassFontConfig() {}
 
   /** Writes the font configuration to {@code target}. */
-  public static void write(File target, Path cacheDirectory, List<File> fontDirectories)
+  public static void write(File target, Path cacheDirectory, List<?> fontDirectories)
       throws IOException {
     if (target == null) return;
     StringBuilder sb = new StringBuilder();
@@ -949,9 +1008,9 @@ public final class LibassFontConfig {
     sb.append("<!DOCTYPE fontconfig SYSTEM \\"fonts.dtd\\">\\n");
     sb.append("<fontconfig>\\n");
     if (fontDirectories != null) {
-      for (File dir : fontDirectories) {
-        if (dir == null) continue;
-        sb.append("  <dir>").append(dir.getAbsolutePath()).append("</dir>\\n");
+      for (Object entry : fontDirectories) {
+        if (entry == null) continue;
+        sb.append("  <dir>").append(entry.toString()).append("</dir>\\n");
       }
     }
     if (cacheDirectory != null) {
@@ -1182,17 +1241,19 @@ ISO_NAVIGATION_PLAYER_CONTROLLER = '''package androidx.media3.exoplayer.iso;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.DiscMenuController;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.source.MediaSource;
+import java.util.function.Consumer;
 
 /**
  * Drives Blu-ray / DVD disc-menu navigation.
  *
- * <p>No native navigation session is available in this build, so the controller never starts and
- * always hands the plain media source back to the player.
+ * <p>No native navigation session is available in this build, so the controller never starts, never
+ * reports a menu as active, and always hands the plain media source back to the player.
  */
-public final class IsoNavigationPlayerController {
+public final class IsoNavigationPlayerController implements DiscMenuController {
 
   private final Player player;
 
@@ -1217,6 +1278,31 @@ public final class IsoNavigationPlayerController {
   }
 
   public void close() {}
+
+  @Override
+  public boolean open(String action, Consumer<OpenResult> callback) {
+    return false;
+  }
+
+  @Override
+  public boolean sendAction(String action) {
+    return false;
+  }
+
+  @Override
+  public boolean isActive() {
+    return false;
+  }
+
+  @Override
+  public boolean isNavigationPlayback() {
+    return false;
+  }
+
+  @Override
+  public boolean supportsPointer() {
+    return false;
+  }
 }
 '''
 
@@ -2576,6 +2662,14 @@ def main():
 
     print("[51/51] PlayerView 补充 VideoTransform import")
     ensure_import(pv, "import androidx.media3.common.VideoTransform;")
+
+    print("[52/52] 扩展 PreloadManagerListener.onPreloadPaused")
+    insert_before(
+        f"{exoplayer}/source/preload/PreloadManagerListener.java",
+        "  default void onError(PreloadException exception) {}",
+        PRELOAD_PAUSED_METHOD,
+        "onPreloadPaused(MediaItem",
+    )
 
     print("\n补丁完成。")
 
