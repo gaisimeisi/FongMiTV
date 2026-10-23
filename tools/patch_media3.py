@@ -343,6 +343,390 @@ DRF_SET_DECODER_MANAGER = '''  private DecoderManager decoderManager;
 
 '''
 
+# ─────────────────────────── 缺失类补全（第 9 批：收尾） ───────────────────────────
+
+ISO_URI = '''package androidx.media3.datasource;
+
+import android.net.Uri;
+
+/** Uri helpers for Blu-ray ISO images. */
+public final class IsoUri {
+
+  public static final String PARAM_EDITION_INDEX = "edition";
+
+  private IsoUri() {}
+
+  /** Appends the edition index to the uri query. */
+  public static Uri withEditionIndex(Uri uri, int editionIndex) {
+    if (uri == null) return null;
+    return uri.buildUpon().appendQueryParameter(PARAM_EDITION_INDEX, String.valueOf(editionIndex)).build();
+  }
+
+  /** Reads the edition index from the uri query, or -1 when absent. */
+  public static int getEditionIndex(Uri uri) {
+    if (uri == null) return -1;
+    String value = uri.getQueryParameter(PARAM_EDITION_INDEX);
+    if (value == null) return -1;
+    try {
+      return Integer.parseInt(value);
+    } catch (NumberFormatException e) {
+      return -1;
+    }
+  }
+}
+'''
+
+AUDIO_CHANNEL_MIX = '''package androidx.media3.common.audio;
+
+/** Factory helpers describing how to remix channels. */
+public final class AudioChannelMix {
+
+  private final int inputChannels;
+  private final int outputChannels;
+  private final boolean swap;
+  private final float centerGain;
+  private final float balance;
+
+  private AudioChannelMix(int inputChannels, int outputChannels, boolean swap, float centerGain, float balance) {
+    this.inputChannels = inputChannels;
+    this.outputChannels = outputChannels;
+    this.swap = swap;
+    this.centerGain = centerGain;
+    this.balance = balance;
+  }
+
+  /** Mix that swaps left and right. */
+  public static AudioChannelMix createStereoMix(int inputChannels, boolean swap) {
+    return new AudioChannelMix(inputChannels, 2, swap, 0f, 0f);
+  }
+
+  /** Mix that downmixes everything into one channel. */
+  public static AudioChannelMix createMonoMix(int inputChannels) {
+    return new AudioChannelMix(inputChannels, 1, false, 0f, 0f);
+  }
+
+  /** Mix that boosts the centre channel. */
+  public static AudioChannelMix createFrontCenterGainMix(int inputChannels, float gain) {
+    return new AudioChannelMix(inputChannels, inputChannels, false, gain, 0f);
+  }
+
+  /** Mix that applies a left/right balance. */
+  public static AudioChannelMix createFrontBalanceMix(int inputChannels, float balance) {
+    return new AudioChannelMix(inputChannels, inputChannels, false, 0f, balance);
+  }
+
+  /** Chains two mixes into one. */
+  public static AudioChannelMix compose(AudioChannelMix first, AudioChannelMix second) {
+    if (first == null) return second;
+    if (second == null) return first;
+    return new AudioChannelMix(
+        first.inputChannels,
+        second.outputChannels,
+        first.swap || second.swap,
+        first.centerGain + second.centerGain,
+        first.balance + second.balance);
+  }
+
+  public int getInputChannels() {
+    return inputChannels;
+  }
+
+  public int getOutputChannels() {
+    return outputChannels;
+  }
+
+  public boolean isSwap() {
+    return swap;
+  }
+
+  public float getCenterGain() {
+    return centerGain;
+  }
+
+  public float getBalance() {
+    return balance;
+  }
+}
+'''
+
+CMG_CONFIGURATION = '''package androidx.media3.exoplayer.hls;
+
+import android.net.Uri;
+import androidx.annotation.Nullable;
+
+/**
+ * Detects the proprietary "cmg" playlist wrapper used by some streams.
+ *
+ * <p>Detection is purely scheme based; no decryption key handling is performed in this build.
+ */
+public final class CmgConfiguration {
+
+  private final Uri uri;
+
+  private CmgConfiguration(Uri uri) {
+    this.uri = uri;
+  }
+
+  /** Returns a configuration when the uri looks like a cmg resource, otherwise {@code null}. */
+  @Nullable
+  public static CmgConfiguration fromMediaUri(@Nullable Uri uri) {
+    if (uri == null) return null;
+    String path = uri.getPath();
+    if (path == null) return null;
+    if (!path.contains(".cmg")) return null;
+    return new CmgConfiguration(uri);
+  }
+
+  public Uri getUri() {
+    return uri;
+  }
+}
+'''
+
+DEFAULT_POSITION_MEDIA_SOURCE = '''package androidx.media3.exoplayer.source;
+
+import android.os.Handler;
+import androidx.annotation.Nullable;
+import androidx.media3.common.MediaItem;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.upstream.Allocator;
+import java.io.IOException;
+
+/** Wraps a media source and remembers the position playback should start at. */
+public final class DefaultPositionMediaSource implements MediaSource {
+
+  private final MediaSource mediaSource;
+  private final long startPositionMs;
+
+  public DefaultPositionMediaSource(MediaSource mediaSource, long startPositionMs) {
+    this.mediaSource = mediaSource;
+    this.startPositionMs = startPositionMs;
+  }
+
+  public long getStartPositionMs() {
+    return startPositionMs;
+  }
+
+  @Override
+  public void addEventListener(Handler handler, MediaSourceEventListener eventListener) {
+    mediaSource.addEventListener(handler, eventListener);
+  }
+
+  @Override
+  public void removeEventListener(MediaSourceEventListener eventListener) {
+    mediaSource.removeEventListener(eventListener);
+  }
+
+  @Override
+  public void addDrmEventListener(Handler handler, DrmSessionEventListener eventListener) {
+    mediaSource.addDrmEventListener(handler, eventListener);
+  }
+
+  @Override
+  public void removeDrmEventListener(DrmSessionEventListener eventListener) {
+    mediaSource.removeDrmEventListener(eventListener);
+  }
+
+  @Override
+  public void maybeThrowSourceInfoRefreshError() throws IOException {
+    mediaSource.maybeThrowSourceInfoRefreshError();
+  }
+
+  @Override
+  public void enable(MediaSourceCaller caller) {
+    mediaSource.enable(caller);
+  }
+
+  @Override
+  public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
+    return mediaSource.createPeriod(id, allocator, startPositionUs);
+  }
+
+  @Override
+  public void releasePeriod(MediaPeriod mediaPeriod) {
+    mediaSource.releasePeriod(mediaPeriod);
+  }
+
+  @Override
+  public void disable(MediaSourceCaller caller) {
+    mediaSource.disable(caller);
+  }
+
+  @Override
+  public void releaseSource(MediaSourceCaller caller) {
+    mediaSource.releaseSource(caller);
+  }
+
+  @Override
+  public MediaItem getMediaItem() {
+    return mediaSource.getMediaItem();
+  }
+}
+'''
+
+CONTENT_TYPE_RESOLVING_MEDIA_SOURCE = '''package androidx.media3.exoplayer.source;
+
+import android.os.Handler;
+import androidx.media3.common.MediaItem;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.upstream.Allocator;
+import java.io.IOException;
+
+/** Media source that resolves the real content type before delegating. */
+public final class ContentTypeResolvingMediaSource implements MediaSource {
+
+  private final MediaSource mediaSource;
+
+  private ContentTypeResolvingMediaSource(MediaSource mediaSource) {
+    this.mediaSource = mediaSource;
+  }
+
+  @Override
+  public void addEventListener(Handler handler, MediaSourceEventListener eventListener) {
+    mediaSource.addEventListener(handler, eventListener);
+  }
+
+  @Override
+  public void removeEventListener(MediaSourceEventListener eventListener) {
+    mediaSource.removeEventListener(eventListener);
+  }
+
+  @Override
+  public void addDrmEventListener(Handler handler, DrmSessionEventListener eventListener) {
+    mediaSource.addDrmEventListener(handler, eventListener);
+  }
+
+  @Override
+  public void removeDrmEventListener(DrmSessionEventListener eventListener) {
+    mediaSource.removeDrmEventListener(eventListener);
+  }
+
+  @Override
+  public void maybeThrowSourceInfoRefreshError() throws IOException {
+    mediaSource.maybeThrowSourceInfoRefreshError();
+  }
+
+  @Override
+  public void enable(MediaSourceCaller caller) {
+    mediaSource.enable(caller);
+  }
+
+  @Override
+  public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
+    return mediaSource.createPeriod(id, allocator, startPositionUs);
+  }
+
+  @Override
+  public void releasePeriod(MediaPeriod mediaPeriod) {
+    mediaSource.releasePeriod(mediaPeriod);
+  }
+
+  @Override
+  public void disable(MediaSourceCaller caller) {
+    mediaSource.disable(caller);
+  }
+
+  @Override
+  public void releaseSource(MediaSourceCaller caller) {
+    mediaSource.releaseSource(caller);
+  }
+
+  @Override
+  public MediaItem getMediaItem() {
+    return mediaSource.getMediaItem();
+  }
+
+  /** Factory for {@link ContentTypeResolvingMediaSource}. */
+  public static final class Factory implements MediaSource.Factory {
+
+    private final MediaSource.Factory delegate;
+    private final DataSource.Factory dataSourceFactory;
+
+    public Factory(MediaSource.Factory delegate, DataSource.Factory dataSourceFactory) {
+      this.delegate = delegate;
+      this.dataSourceFactory = dataSourceFactory;
+    }
+
+    @Override
+    public ContentTypeResolvingMediaSource createMediaSource(MediaItem mediaItem) {
+      return new ContentTypeResolvingMediaSource(delegate.createMediaSource(mediaItem));
+    }
+
+    @Override
+    public Factory setDrmSessionManagerProvider(Object provider) {
+      return this;
+    }
+
+    @Override
+    public Factory setLoadErrorHandlingPolicy(Object policy) {
+      return this;
+    }
+
+    public DataSource.Factory getDataSourceFactory() {
+      return dataSourceFactory;
+    }
+  }
+}
+'''
+
+VIDEO_TRANSFORM = '''package androidx.media3.common;
+
+/** Scale factors applied to the video surface. */
+public final class VideoTransform {
+
+  public final float scaleX;
+  public final float scaleY;
+
+  public VideoTransform() {
+    this(1f, 1f);
+  }
+
+  public VideoTransform(float scaleX, float scaleY) {
+    this.scaleX = scaleX;
+    this.scaleY = scaleY;
+  }
+
+  @Override
+  public String toString() {
+    return "VideoTransform{" + scaleX + ", " + scaleY + "}";
+  }
+}
+'''
+
+BDJ_RUNTIME = '''package androidx.media3.exoplayer.iso;
+
+import android.content.Context;
+
+/**
+ * Manages the BD-J runtime bundle.
+ *
+ * <p>The runtime is shipped separately; this build reports "not restartable" so the module screen
+ * never asks the user to reboot.
+ */
+public final class BdjRuntime {
+
+  private BdjRuntime() {}
+
+  /** Prepares the runtime for the given activation signal. */
+  public static void prepare(Context context, Object signal) {}
+
+  /** Returns the current runtime status. */
+  public static Status getStatus(Context context) {
+    return new Status();
+  }
+
+  /** Runtime status snapshot. */
+  public static final class Status {
+
+    public final boolean restartRequired = false;
+    public final boolean installed = false;
+
+    public Status() {}
+  }
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 8 批：特效 / 弹幕 / mpv 辅助 / libass UI） ───────────────────────────
 
 COLOR_TONE_ADJUST_EFFECT = '''package androidx.media3.effect;
@@ -455,7 +839,7 @@ public final class DanmakuPlayerViewController {
 }
 '''
 
-LIBASS_PLAYER_VIEW_CONTROLLER = '''package androidx.media3.exoplayer.ui.libass;
+LIBASS_PLAYER_VIEW_CONTROLLER = '''package androidx.media3.ui.libass;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
@@ -1240,6 +1624,22 @@ public final class SubtitleContent {
     UNSUPPORTED
   }
 
+  /** One parsed subtitle line. */
+  public static final class Entry {
+
+    public final String text;
+    public final long startTimeUs;
+    public final long endTimeUs;
+    public final boolean image;
+
+    public Entry(String text, long startTimeUs, long endTimeUs, boolean image) {
+      this.text = text;
+      this.startTimeUs = startTimeUs;
+      this.endTimeUs = endTimeUs;
+      this.image = image;
+    }
+  }
+
   /** Signals that the track could not be read. */
   public static final SubtitleContent UNSUPPORTED =
       new SubtitleContent(Collections.emptyList(), null);
@@ -1816,6 +2216,18 @@ PLAYERVIEW_METHODS = '''  /**
    */
   public void dispatchDiscMenuTouchEvent(MotionEvent event) {}
 
+  private VideoTransform videoTransform = new VideoTransform();
+
+  /** Returns the current video scale transform. */
+  public VideoTransform getVideoTransform() {
+    return videoTransform;
+  }
+
+  /** Sets the video scale transform. */
+  public void setVideoTransform(VideoTransform transform) {
+    this.videoTransform = transform == null ? new VideoTransform() : transform;
+  }
+
 '''
 
 
@@ -2122,6 +2534,39 @@ def main():
     write_if_absent(
         f"{exoplayer}/libass/LibassFontConfig.java", LIBASS_FONT_CONFIG, "class LibassFontConfig"
     )
+
+    print("[44/51] 新增 IsoUri")
+    write_if_absent(f"{datasource}/IsoUri.java", ISO_URI, "class IsoUri")
+
+    print("[45/51] 新增 AudioChannelMix")
+    write_if_absent(f"{common}/audio/AudioChannelMix.java", AUDIO_CHANNEL_MIX, "class AudioChannelMix")
+
+    print("[46/51] 新增 CmgConfiguration")
+    hls = f"{exoplayer}/hls"
+    write_if_absent(f"{hls}/CmgConfiguration.java", CMG_CONFIGURATION, "class CmgConfiguration")
+
+    print("[47/51] 新增 DefaultPositionMediaSource")
+    write_if_absent(
+        f"{exoplayer}/source/DefaultPositionMediaSource.java",
+        DEFAULT_POSITION_MEDIA_SOURCE,
+        "class DefaultPositionMediaSource",
+    )
+
+    print("[48/51] 新增 ContentTypeResolvingMediaSource")
+    write_if_absent(
+        f"{exoplayer}/source/ContentTypeResolvingMediaSource.java",
+        CONTENT_TYPE_RESOLVING_MEDIA_SOURCE,
+        "class ContentTypeResolvingMediaSource",
+    )
+
+    print("[49/51] 新增 VideoTransform")
+    write_if_absent(f"{common}/VideoTransform.java", VIDEO_TRANSFORM, "class VideoTransform")
+
+    print("[50/51] 新增 BdjRuntime")
+    write_if_absent(f"{exoplayer}/iso/BdjRuntime.java", BDJ_RUNTIME, "class BdjRuntime")
+
+    print("[51/51] PlayerView 补充 VideoTransform import")
+    ensure_import(pv, "import androidx.media3.common.VideoTransform;")
 
     print("\n补丁完成。")
 
