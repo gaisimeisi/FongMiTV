@@ -181,6 +181,96 @@ public final class IsoDiscPreparation {
 }
 '''
 
+# ─────────────────────────── 缺失类补全（第 4 批：字幕内容） ───────────────────────────
+
+SUBTITLE_CONTENT = '''package androidx.media3.common.text;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.text.Cue;
+import java.util.Collections;
+import java.util.List;
+
+/** Parsed subtitle payload handed between the player engines. */
+public final class SubtitleContent {
+
+  /** Signals that the track could not be read. */
+  public static final SubtitleContent UNSUPPORTED =
+      new SubtitleContent(Collections.emptyList(), null);
+
+  /** Parsed cues, in playback order. */
+  public final List<Cue> cues;
+
+  /** MIME type the cues were parsed from, when known. */
+  @Nullable public final String mimeType;
+
+  public SubtitleContent(List<Cue> cues, @Nullable String mimeType) {
+    this.cues = cues == null ? Collections.emptyList() : cues;
+    this.mimeType = mimeType;
+  }
+
+  /** Returns whether reading the track failed. */
+  public boolean isUnsupported() {
+    return this == UNSUPPORTED;
+  }
+
+  /** Returns whether there is anything to show. */
+  public boolean isEmpty() {
+    return cues.isEmpty();
+  }
+}
+'''
+
+DEFAULT_SUBTITLE_CONTENT_LOADER = '''package androidx.media3.exoplayer.text;
+
+import android.net.Uri;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.text.SubtitleContent;
+import androidx.media3.datasource.DataSource;
+import java.io.IOException;
+
+/**
+ * Loads an external subtitle file into {@link SubtitleContent}.
+ *
+ * <p>This build does not run a subtitle decoder outside of the player pipeline, so loading always
+ * reports {@link SubtitleContent#UNSUPPORTED}. Subtitle rendering itself is unaffected and keeps
+ * using the tracks delivered by ExoPlayer.
+ */
+public final class DefaultSubtitleContentLoader {
+
+  private final DataSource.Factory dataSourceFactory;
+
+  public DefaultSubtitleContentLoader(DataSource.Factory dataSourceFactory) {
+    this.dataSourceFactory = dataSourceFactory;
+  }
+
+  /** Returns the load result for the given subtitle resource. */
+  public SubtitleContent load(MediaItem item, Uri uri, Format format) throws IOException {
+    return SubtitleContent.UNSUPPORTED;
+  }
+
+  public DataSource.Factory getDataSourceFactory() {
+    return dataSourceFactory;
+  }
+}
+'''
+
+MPV_SUBTITLE_CONTENT_LOADER = '''package androidx.media3.mpvplayer;
+
+import android.net.Uri;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.text.SubtitleContent;
+import java.io.IOException;
+
+/** Lets the mpv engine read an external subtitle file through app code. */
+public interface MpvSubtitleContentLoader {
+
+  /** Loads the subtitle resource, or returns {@link SubtitleContent#UNSUPPORTED}. */
+  SubtitleContent load(MediaItem item, Uri uri, Format format) throws IOException;
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 3 批：音频效果） ───────────────────────────
 
 AUDIO_EFFECT_PARAMETERS = '''package androidx.media3.common.audio;
@@ -791,6 +881,25 @@ def main():
         f"{common}/audio/AudioEffectParameters.java",
         AUDIO_EFFECT_PARAMETERS,
         "class AudioEffectParameters",
+    )
+
+    mpvplayer = f"{root}/libraries/mpvplayer/src/main/java/androidx/media3/mpvplayer"
+
+    print("[14/16] 新增 SubtitleContent")
+    write_if_absent(f"{common}/text/SubtitleContent.java", SUBTITLE_CONTENT, "class SubtitleContent")
+
+    print("[15/16] 新增 DefaultSubtitleContentLoader")
+    write_if_absent(
+        f"{exoplayer}/text/DefaultSubtitleContentLoader.java",
+        DEFAULT_SUBTITLE_CONTENT_LOADER,
+        "class DefaultSubtitleContentLoader",
+    )
+
+    print("[16/16] 新增 MpvSubtitleContentLoader")
+    write_if_absent(
+        f"{mpvplayer}/MpvSubtitleContentLoader.java",
+        MPV_SUBTITLE_CONTENT_LOADER,
+        "interface MpvSubtitleContentLoader",
     )
 
     print("\n补丁完成。")
