@@ -181,6 +181,282 @@ public final class IsoDiscPreparation {
 }
 '''
 
+# ─────────────────────────── 缺失类补全（第 5 批：libass 基础 + 字幕转录） ───────────────────────────
+
+LIBASS_CONFIGURATION = '''package androidx.media3.exoplayer.libass;
+
+/** Immutable libass runtime configuration. */
+public final class LibassConfiguration {
+
+  public final String fontConfig;
+  public final String fontsDirectory;
+  public final String defaultFontFamily;
+  public final int maximumRenderPixels;
+  public final int maximumGlyphCount;
+  public final int maximumBitmapCacheSizeMb;
+
+  private LibassConfiguration(Builder b) {
+    this.fontConfig = b.fontConfig;
+    this.fontsDirectory = b.fontsDirectory;
+    this.defaultFontFamily = b.defaultFontFamily;
+    this.maximumRenderPixels = b.maximumRenderPixels;
+    this.maximumGlyphCount = b.maximumGlyphCount;
+    this.maximumBitmapCacheSizeMb = b.maximumBitmapCacheSizeMb;
+  }
+
+  /** Builder for {@link LibassConfiguration}. */
+  public static final class Builder {
+
+    private String fontConfig;
+    private String fontsDirectory;
+    private String defaultFontFamily;
+    private int maximumRenderPixels = 1920 * 1080;
+    private int maximumGlyphCount = 3000;
+    private int maximumBitmapCacheSizeMb = 64;
+
+    public Builder setFontConfig(String fontConfig) {
+      this.fontConfig = fontConfig;
+      return this;
+    }
+
+    public Builder setFontsDirectory(String fontsDirectory) {
+      this.fontsDirectory = fontsDirectory;
+      return this;
+    }
+
+    public Builder setDefaultFontFamily(String defaultFontFamily) {
+      this.defaultFontFamily = defaultFontFamily;
+      return this;
+    }
+
+    public Builder setMaximumRenderPixels(int maximumRenderPixels) {
+      this.maximumRenderPixels = maximumRenderPixels;
+      return this;
+    }
+
+    public Builder setMaximumGlyphCount(int maximumGlyphCount) {
+      this.maximumGlyphCount = maximumGlyphCount;
+      return this;
+    }
+
+    public Builder setMaximumBitmapCacheSizeMb(int maximumBitmapCacheSizeMb) {
+      this.maximumBitmapCacheSizeMb = maximumBitmapCacheSizeMb;
+      return this;
+    }
+
+    public LibassConfiguration build() {
+      return new LibassConfiguration(this);
+    }
+  }
+}
+'''
+
+LIBASS_FONT_FILE = '''package androidx.media3.exoplayer.libass;
+
+/** A font file discovered by the external-font scanner. */
+public final class LibassFontFile {
+
+  public final String family;
+  public final String path;
+  public final boolean bold;
+  public final boolean italic;
+
+  public LibassFontFile(String family, String path, boolean bold, boolean italic) {
+    this.family = family;
+    this.path = path;
+    this.bold = bold;
+    this.italic = italic;
+  }
+
+  @Override
+  public String toString() {
+    return "LibassFontFile{" + family + ", " + path + "}";
+  }
+}
+'''
+
+LIBASS_PLAYBACK_SESSION = '''package androidx.media3.exoplayer.libass;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.MediaItem;
+import androidx.media3.exoplayer.extractor.ExtractorsFactory;
+import androidx.media3.exoplayer.text.SubtitleTranscript;
+
+/**
+ * Owns the libass rendering session for one playback.
+ *
+ * <p>This build keeps the object graph intact but reports {@link #isAvailable()} as {@code false}:
+ * the native libreass pipeline is not wired up, so subtitle rendering stays on the Media3 path
+ * (SRT / WebVTT / embedded tracks work normally, ASS styling does not).
+ */
+public final class LibassPlaybackSession {
+
+  /** Extractor and parser overrides produced by the libass pipeline. */
+  public static final class MediaComponents {
+
+    public final ExtractorsFactory extractorsFactory;
+    public final androidx.media3.extractor.text.SubtitleParser.Factory subtitleParserFactory;
+
+    public MediaComponents(
+        ExtractorsFactory extractorsFactory,
+        androidx.media3.extractor.text.SubtitleParser.Factory subtitleParserFactory) {
+      this.extractorsFactory = extractorsFactory;
+      this.subtitleParserFactory = subtitleParserFactory;
+    }
+  }
+
+  private final LibassConfiguration configuration;
+  private final boolean enabled;
+  private volatile boolean closed;
+
+  public LibassPlaybackSession(LibassConfiguration configuration, boolean enabled) {
+    this.configuration = configuration;
+    this.enabled = enabled;
+  }
+
+  /** Returns whether the native libass pipeline can be used. */
+  public boolean isAvailable() {
+    return false;
+  }
+
+  /** Builds the extractor/parser overrides for a media item. */
+  public MediaComponents createMediaComponents(
+      MediaItem item, ExtractorsFactory extractorsFactory, SubtitleTranscript transcript) {
+    return new MediaComponents(extractorsFactory, null);
+  }
+
+  public void setPreloadMediaItem(@Nullable MediaItem item) {}
+
+  public void setBottomPositionFraction(float fraction) {}
+
+  public void setSecondaryBottomPositionFraction(float fraction) {}
+
+  public void setFontScale(float scale, boolean apply) {}
+
+  public LibassConfiguration getConfiguration() {
+    return configuration;
+  }
+
+  public boolean isEnabled() {
+    return enabled;
+  }
+
+  public void close() {
+    closed = true;
+  }
+}
+'''
+
+SUBTITLE_TRANSCRIPT = '''package androidx.media3.exoplayer.text;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.MediaItem;
+
+/** External subtitle resources attached to a media item. */
+public final class SubtitleTranscript {
+
+  @Nullable private final MediaItem item;
+
+  public SubtitleTranscript(@Nullable MediaItem item) {
+    this.item = item;
+  }
+
+  @Nullable
+  public MediaItem getMediaItem() {
+    return item;
+  }
+
+  @Override
+  public String toString() {
+    return "SubtitleTranscript{" + item + "}";
+  }
+}
+'''
+
+SUBTITLE_TRANSCRIPT_SESSION = '''package androidx.media3.exoplayer.text;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
+import androidx.media3.common.text.SubtitleContent;
+import androidx.media3.mpvplayer.MpvSubtitleContentLoader;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/** Tracks external subtitle resources per media item. */
+public final class SubtitleTranscriptSession {
+
+  private final Map<MediaItem, SubtitleTranscript> transcripts = new ConcurrentHashMap<>();
+
+  @Nullable private MpvSubtitleContentLoader loader;
+  @Nullable private Player player;
+
+  public void setLoader(MpvSubtitleContentLoader loader) {
+    this.loader = loader;
+  }
+
+  public void setPlayer(Player player) {
+    this.player = player;
+  }
+
+  public void setPreloadMediaItem(@Nullable MediaItem item) {}
+
+  /** Returns (creating if needed) the transcript for the given item. */
+  public SubtitleTranscript forMediaItem(MediaItem item) {
+    return transcripts.computeIfAbsent(item, SubtitleTranscript::new);
+  }
+
+  /** Returns the parsed content of a subtitle track. */
+  public SubtitleContent getContent(Format format, long offsetMs) {
+    return SubtitleContent.UNSUPPORTED;
+  }
+
+  public void close() {
+    transcripts.clear();
+    loader = null;
+    player = null;
+  }
+}
+'''
+
+SUBTITLE_TRANSCRIPT_PARSER_FACTORY = '''package androidx.media3.exoplayer.text;
+
+import androidx.media3.common.Format;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleParser;
+
+/**
+ * Parser factory backed by the stock Media3 parsers.
+ *
+ * <p>The libass transcript path would install its own parser here; without it we delegate to the
+ * stock implementation so external SRT / WebVTT files keep working.
+ */
+public final class SubtitleTranscriptParserFactory implements SubtitleParser.Factory {
+
+  private final SubtitleTranscript transcript;
+  private final SubtitleParser.Factory delegate = new DefaultSubtitleParserFactory();
+
+  public SubtitleTranscriptParserFactory(SubtitleTranscript transcript) {
+    this.transcript = transcript;
+  }
+
+  public SubtitleTranscript getTranscript() {
+    return transcript;
+  }
+
+  @Override
+  public boolean supportsFormat(Format format) {
+    return delegate.supportsFormat(format);
+  }
+
+  @Override
+  public SubtitleParser create(Format format) {
+    return delegate.create(format);
+  }
+}
+'''
+
 # ─────────────────────────── 缺失类补全（第 4 批：字幕内容） ───────────────────────────
 
 SUBTITLE_CONTENT = '''package androidx.media3.common.text;
@@ -900,6 +1176,40 @@ def main():
         f"{mpvplayer}/MpvSubtitleContentLoader.java",
         MPV_SUBTITLE_CONTENT_LOADER,
         "interface MpvSubtitleContentLoader",
+    )
+
+    print("[17/22] 新增 LibassConfiguration")
+    write_if_absent(
+        f"{exoplayer}/libass/LibassConfiguration.java", LIBASS_CONFIGURATION, "class LibassConfiguration"
+    )
+
+    print("[18/22] 新增 LibassFontFile")
+    write_if_absent(f"{exoplayer}/libass/LibassFontFile.java", LIBASS_FONT_FILE, "class LibassFontFile")
+
+    print("[19/22] 新增 LibassPlaybackSession")
+    write_if_absent(
+        f"{exoplayer}/libass/LibassPlaybackSession.java",
+        LIBASS_PLAYBACK_SESSION,
+        "class LibassPlaybackSession",
+    )
+
+    print("[20/22] 新增 SubtitleTranscript")
+    write_if_absent(
+        f"{exoplayer}/text/SubtitleTranscript.java", SUBTITLE_TRANSCRIPT, "class SubtitleTranscript"
+    )
+
+    print("[21/22] 新增 SubtitleTranscriptSession")
+    write_if_absent(
+        f"{exoplayer}/text/SubtitleTranscriptSession.java",
+        SUBTITLE_TRANSCRIPT_SESSION,
+        "class SubtitleTranscriptSession",
+    )
+
+    print("[22/22] 新增 SubtitleTranscriptParserFactory")
+    write_if_absent(
+        f"{exoplayer}/text/SubtitleTranscriptParserFactory.java",
+        SUBTITLE_TRANSCRIPT_PARSER_FACTORY,
+        "class SubtitleTranscriptParserFactory",
     )
 
     print("\n补丁完成。")
