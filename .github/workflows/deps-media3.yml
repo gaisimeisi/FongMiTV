@@ -20,6 +20,11 @@ on:
         type: boolean
         required: false
         default: true
+  push:
+    branches: [ fongmi ]
+    paths:
+      - 'tools/patch_media3.py'
+      - '.github/workflows/deps-media3.yml'
 
 permissions:
   contents: write
@@ -156,7 +161,7 @@ jobs:
           retention-days: 90
 
       - name: Commit aars into app/libs
-        if: ${{ inputs.commit }}
+        if: ${{ inputs.commit != false }}
         working-directory: self
         run: |
           mkdir -p app/libs
