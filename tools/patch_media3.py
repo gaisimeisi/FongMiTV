@@ -373,7 +373,7 @@ MPV_SUBTITLE_OPTION_METHODS = '''    /** Brightness applied to bitmap (PGS) subt
     }
 
     /** Vertical offset of the primary subtitle, in percent from the bottom. */
-    public Builder setVerticalOffset(int verticalOffset) {
+    public Builder setVerticalOffset(float verticalOffset) {
       this.verticalOffset = verticalOffset;
       return this;
     }
@@ -462,6 +462,62 @@ MPVPLAYER_METHODS = '''  /** Selects the video decoder mode used by the next pla
   /** Returns the loaded script payload, if any. */
   public Object getScriptData() {
     return scriptData;
+  }
+
+  /** Toggles verbose native logging. */
+  public void setVerboseLoggingEnabled(boolean enabled) {}
+
+  /** Returns the current subtitle selection state. */
+  public androidx.media3.common.text.SubtitleSelectionState getSubtitleSelectionState() {
+    return androidx.media3.common.text.SubtitleSelectionState.EMPTY;
+  }
+
+  /** Returns the parsed subtitle content for a track selection. */
+  public androidx.media3.common.text.SubtitleContent getSubtitleContentForSelection(
+      androidx.media3.common.TrackSelectionOverride selection) {
+    return androidx.media3.common.text.SubtitleContent.UNSUPPORTED;
+  }
+
+  /** Enables or disables external subtitle content loading. */
+  public void setSubtitleContentEnabled(boolean enabled) {}
+
+  /** Returns whether subtitle content loading can be retried. */
+  public boolean canRetrySubtitleContent(androidx.media3.common.Format format) {
+    return false;
+  }
+
+  /** Retries subtitle content loading. */
+  public void retrySubtitleContent(androidx.media3.common.Format format) {}
+
+  /** Sets the data source factory used for disc navigation. */
+  public void setDiscDataSourceFactory(androidx.media3.datasource.DataSource.Factory factory) {}
+
+  /** Clears the secondary text track selection. */
+  public void resetSecondaryTextTrackSelection() {}
+
+  @Override
+  public boolean open(String action, java.util.function.Consumer<OpenResult> callback) {
+    return false;
+  }
+
+  @Override
+  public boolean sendAction(String action) {
+    return false;
+  }
+
+  @Override
+  public boolean isActive() {
+    return false;
+  }
+
+  @Override
+  public boolean isNavigationPlayback() {
+    return false;
+  }
+
+  @Override
+  public boolean supportsPointer() {
+    return false;
   }
 
 '''
@@ -1498,6 +1554,19 @@ public enum MpvDecoderMode {
         return AUTO;
     }
   }
+
+  /** Converts to the app-facing Media3 representation. */
+  public androidx.media3.common.DecoderMode toCommonDecoderMode() {
+    switch (this) {
+      case HARDWARE:
+        return androidx.media3.common.DecoderMode.HARDWARE;
+      case SOFTWARE:
+        return androidx.media3.common.DecoderMode.FFMPEG;
+      case AUTO:
+      default:
+        return androidx.media3.common.DecoderMode.AUTO;
+    }
+  }
 }
 '''
 
@@ -1625,6 +1694,24 @@ public final class LibassFontFile {
     this.path = path;
     this.bold = bold;
     this.italic = italic;
+  }
+
+  /** Returns the font family name. */
+  public String getFamilyName() {
+    return family;
+  }
+
+  /** Returns the font file path. */
+  public String getPath() {
+    return path;
+  }
+
+  public boolean isBold() {
+    return bold;
+  }
+
+  public boolean isItalic() {
+    return italic;
   }
 
   @Override
@@ -2869,13 +2956,21 @@ def main():
         "onPreloadPaused(MediaItem",
     )
 
-    print("[53/55] 扩展 MpvPlayer 字段与方法")
+    print("[53/58] 让 MpvPlayer 实现 DiscMenuController")
     mpv_player = f"{mpvplayer}/MpvPlayer.java"
+    insert_after(
+        mpv_player,
+        "public final class MpvPlayer extends SimpleBasePlayer",
+        " implements androidx.media3.common.DiscMenuController",
+        "implements androidx.media3.common.DiscMenuController",
+    )
+
+    print("[54/58] 扩展 MpvPlayer 字段与方法")
     insert_before(mpv_player, "  private @C.DecodeMode int decode;", MPVPLAYER_FIELDS + MPVPLAYER_METHODS, "setVideoDecoderMode(MpvDecoderMode")
     insert_after(mpv_player, "  public static final class Builder {", "\n" + MPV_BUILDER_FIELDS + MPV_BUILDER_METHODS, "setBitmapSubtitleBrightness(float")
     ensure_import(mpv_player, "import androidx.media3.mpvplayer.MpvDecoderMode;")
 
-    print("[55/57] 扩展 MpvSubtitleOptions.Builder")
+    print("[55/58] 扩展 MpvSubtitleOptions.Builder")
     mso = f"{mpvplayer}/MpvSubtitleOptions.java"
     insert_before(
         mso,
