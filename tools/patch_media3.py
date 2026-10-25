@@ -3060,16 +3060,21 @@ def main():
         "class DefaultSubtitleContentLoader",
     )
 
-    print("[16/22] 新增 MpvSubtitleContentLoader")
-    stale = f"{mpvplayer}/MpvSubtitleContentLoader.java"
-    if os.path.exists(stale):
-        os.remove(stale)
-        print(f"  - 移除旧位置: {stale}")
+    print("[16/22] 新增 MpvSubtitleContentLoader（放在 common，避免 aar 重复类）")
+    # 只在 common 里生成：exoplayer 与 mpvplayer 都依赖 common，不会循环依赖，
+    # 也不会出现「lib-common 与 lib-exoplayer 各带一份同名类」的 duplicate class 错误。
     write_if_absent(
-        f"{exoplayer}/mpvplayer/MpvSubtitleContentLoader.java",
+        f"{common}/mpvplayer/MpvSubtitleContentLoader.java",
         MPV_SUBTITLE_CONTENT_LOADER,
         "interface MpvSubtitleContentLoader",
     )
+    for stale in (
+        f"{mpvplayer}/MpvSubtitleContentLoader.java",
+        f"{exoplayer}/mpvplayer/MpvSubtitleContentLoader.java",
+    ):
+        if os.path.exists(stale):
+            os.remove(stale)
+            print(f"  - 移除旧位置: {stale}")
 
     print("[17/22] 新增 LibassConfiguration")
     write_if_absent(
