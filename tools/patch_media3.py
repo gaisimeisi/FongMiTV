@@ -3285,6 +3285,8 @@ def main():
 
     print("[58/58] 对齐 is.xyz.mpv.MPVLib（Stream / openStream / enqueueCommandLongResult）")
     patch_mpvlib(root)
+    print("[59/59] 补齐 extra APIs（ExoPlayer subtitleOffsets / prepareSource / renderers / mpv loader / ui）")
+    patch_extra_apis(root)
 
     print("[58/58] 完成")
     print("\n补丁完成。")
