@@ -106,7 +106,7 @@ jobs:
         working-directory: media
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace --rerun-tasks clean \
+          ./gradlew --no-daemon --stacktrace --no-build-cache --rerun-tasks clean \
             -x lint -x test \
             :lib-common:assembleRelease \
             :lib-exoplayer:assembleRelease \
