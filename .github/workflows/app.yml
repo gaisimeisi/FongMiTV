@@ -107,7 +107,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: app-gradle-${{ hashFiles('**/*.gradle', 'gradle/libs.versions.toml') }}
+          key: app-gradle-${{ hashFiles('**/*.gradle', 'gradle/libs.versions.toml', 'app/libs/*.aar') }}
           restore-keys: app-gradle-
 
       - name: Build
