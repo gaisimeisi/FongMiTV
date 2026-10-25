@@ -2779,6 +2779,181 @@ def patch_mpvlib(root):
     ensure_import(path, "import androidx.annotation.Nullable;")
 
 
+
+def patch_extra_apis(root):
+    """补齐只有本地手改、之前没进脚本的 API（ExoPlayer / prepareSource / renderers / mpv loader）。"""
+    exo = f"{root}/libraries/exoplayer/src/main/java/androidx/media3/exoplayer"
+    common = f"{root}/libraries/common/src/main/java/androidx/media3/common"
+    mpv = f"{root}/libraries/mpvplayer/src/main/java/androidx/media3/mpvplayer"
+    ui = f"{root}/libraries/ui/src/main/java/androidx/media3/ui"
+
+    # 1) ExoPlayer 接口 + 两个实现：subtitleOffsets
+    p1 = f"{exo}/ExoPlayer.java"
+    if os.path.exists(p1):
+        t = open(p1, encoding="utf-8").read()
+        if "getSubtitleOffsets()" not in t:
+            anchor = "  long DEFAULT_DETACH_SURFACE_TIMEOUT_MS = Builder.DEFAULT_DETACH_SURFACE_TIMEOUT_MS;"
+            if anchor in t:
+                add = anchor + """
+
+  /** Returns the subtitle timing offsets applied on top of subtitle cues. */
+  androidx.media3.common.text.SubtitleOffsets getSubtitleOffsets();
+
+  /** Sets the subtitle timing offsets applied on top of subtitle cues. */
+  void setSubtitleOffsets(androidx.media3.common.text.SubtitleOffsets offsets);"""
+                open(p1, "w", encoding="utf-8", newline="\n").write(t.replace(anchor, add, 1))
+                print("  ~ ExoPlayer 接口 + subtitleOffsets")
+
+    impl_body = """
+  private androidx.media3.common.text.SubtitleOffsets subtitleOffsets =
+      androidx.media3.common.text.SubtitleOffsets.ZERO;
+
+  @Override
+  public androidx.media3.common.text.SubtitleOffsets getSubtitleOffsets() {
+    return subtitleOffsets;
+  }
+
+  @Override
+  public void setSubtitleOffsets(androidx.media3.common.text.SubtitleOffsets offsets) {
+    this.subtitleOffsets =
+        offsets == null ? androidx.media3.common.text.SubtitleOffsets.ZERO : offsets;
+  }
+"""
+    for name in ("ExoPlayerImpl.java", "SimpleExoPlayer.java"):
+        p2 = f"{exo}/{name}"
+        if not os.path.exists(p2):
+            continue
+        t = open(p2, encoding="utf-8").read()
+        if "getSubtitleOffsets()" in t:
+            continue
+        i = t.find("\n  @Override\n  public ")
+        if i > 0:
+            t = t[:i+1] + impl_body + t[i+1:]
+            open(p2, "w", encoding="utf-8", newline="\n").write(t)
+            print(f"  ~ {name} + subtitleOffsets")
+
+    # 2) DefaultRenderersFactory.setEnableSurfaceControlFrameRetention
+    p3 = f"{exo}/DefaultRenderersFactory.java"
+    if os.path.exists(p3):
+        t = open(p3, encoding="utf-8").read()
+        if "setEnableSurfaceControlFrameRetention" not in t:
+            anchor = "  @CanIgnoreReturnValue\n  @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.\n  public DefaultRenderersFactory setEnableMediaCodecVideoRendererDurationToProgressUs("
+            if anchor in t:
+                add = """  private boolean enableSurfaceControlFrameRetention;
+
+  /** Enables SurfaceControl based frame retention for smoother HDR playback. */
+  @CanIgnoreReturnValue
+  public DefaultRenderersFactory setEnableSurfaceControlFrameRetention(boolean enabled) {
+    this.enableSurfaceControlFrameRetention = enabled;
+    return this;
+  }
+
+""" + anchor
+                open(p3, "w", encoding="utf-8", newline="\n").write(t.replace(anchor, add, 1))
+                print("  ~ DefaultRenderersFactory + setEnableSurfaceControlFrameRetention")
+
+    # 3) 三个 MediaSource 包装类的 prepareSource(3 参)
+    prep = """  @Override
+  public void prepareSource(
+      MediaSourceCaller caller,
+      androidx.media3.exoplayer.analytics.PlayerId playerId,
+      androidx.media3.exoplayer.upstream.BandwidthMeter bandwidthMeter) {
+    mediaSource.prepareSource(caller, playerId, bandwidthMeter);
+  }
+
+"""
+    for name in ("ContentTypeResolvingMediaSource.java", "EndTrimMediaSource.java", "DefaultPositionMediaSource.java"):
+        p4 = f"{exo}/source/{name}"
+        if not os.path.exists(p4):
+            continue
+        t = open(p4, encoding="utf-8").read()
+        if "BandwidthMeter bandwidthMeter" in t:
+            continue
+        anchor = "  @Override\n  public void enable(MediaSourceCaller caller)"
+        if anchor in t:
+            t = t.replace(anchor, prep + anchor, 1)
+            open(p4, "w", encoding="utf-8", newline="\n").write(t)
+            print(f"  ~ {name} + prepareSource")
+
+    # 4) MpvLibrary 走自定义 loader（下载方案）
+    p5 = f"{mpv}/MpvLibrary.java"
+    if os.path.exists(p5):
+        t = open(p5, encoding="utf-8").read()
+        if "customLoaderSucceeded" not in t and "protected void loadLibrary(String name)" in t:
+            old = """        protected void loadLibrary(String name) {
+          System.loadLibrary(name);
+        }"""
+            new = """        protected void loadLibrary(String name) {
+          Loader custom = libraryLoader;
+          if (custom != null && !customLoaderSucceeded) {
+            try {
+              customLoaderSucceeded = custom.load();
+            } catch (RuntimeException | LinkageError e) {
+              customLoaderSucceeded = false;
+            }
+            if (customLoaderSucceeded) return;
+          }
+          if (!customLoaderSucceeded) System.loadLibrary(name);
+        }"""
+            if old in t:
+                t = t.replace(old, new, 1)
+                t = t.replace("  private static final LibraryLoader LOADER =",
+                              "  private static volatile boolean customLoaderSucceeded;\n\n  private static final LibraryLoader LOADER =", 1)
+                open(p5, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ MpvLibrary + custom loader")
+
+    # 5) PlayerView 三个方法 / PlayerSeekView.DurationSupplier
+    p6 = f"{ui}/PlayerView.java"
+    if os.path.exists(p6):
+        t = open(p6, encoding="utf-8").read()
+        if "setBackendPlayer" not in t:
+            anchor = "public class PlayerView extends FrameLayout implements AdViewProvider {"
+            if anchor in t:
+                add = anchor + """
+
+  @Nullable private Player backendPlayer;
+  private float videoAspectRatioOverride;
+
+  public void setBackendPlayer(@Nullable Player player) {
+    this.backendPlayer = player;
+  }
+
+  @Nullable
+  public Player getBackendPlayer() {
+    return backendPlayer;
+  }
+
+  public void setVideoAspectRatioOverride(float aspectRatio) {
+    this.videoAspectRatioOverride = aspectRatio;
+  }
+
+  public float getVideoAspectRatioOverride() {
+    return videoAspectRatioOverride;
+  }"""
+                open(p6, "w", encoding="utf-8", newline="\n").write(t.replace(anchor, add, 1))
+                print("  ~ PlayerView + backendPlayer/aspectRatio")
+
+    p7 = f"{ui}/PlayerSeekView.java"
+    if os.path.exists(p7):
+        t = open(p7, encoding="utf-8").read()
+        if "DurationSupplier" not in t:
+            anchor = "  public void setPlayer(@Nullable Player player) {"
+            if anchor in t:
+                add = """  public interface DurationSupplier {
+    long getDurationMs();
+  }
+
+  @Nullable private DurationSupplier durationSupplier;
+
+  public void setDurationSupplier(@Nullable DurationSupplier supplier) {
+    this.durationSupplier = supplier;
+  }
+
+""" + anchor
+                open(p7, "w", encoding="utf-8", newline="\n").write(t.replace(anchor, add, 1))
+                print("  ~ PlayerSeekView + DurationSupplier")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("用法: python3 patch_media3.py <media3 仓库根目录>")
