@@ -114,7 +114,7 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace -x lint \
-            ${{ inputs.task || ':app:assembleLeanbackArm64Debug' }}
+            ${{ inputs.task || ':app:assembleLeanbackDebug' }}
 
       - name: Collect APKs
         run: |
