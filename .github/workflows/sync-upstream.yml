@@ -1,0 +1,97 @@
+name: sync-upstream
+
+# 用途：检查上游 FongMi/TV 是否发布新版本；有新版本则记录并触发 APK 构建。
+# 触发：每天定时（UTC 18:00 = 北京 02:00）+ 手动
+# 说明：上游没有 release/tag，因此以 app/build.gradle 的 versionName 作为版本指纹。
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '强制重新构建（忽略版本是否变化）'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  actions: write
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: fongmi
+
+      - name: Detect upstream version
+        id: ver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # 用 GitHub API（比 raw.githubusercontent 稳；Actions 自带 gh + GH_TOKEN）
+          UPSTREAM_VER=$(gh api "repos/FongMi/TV/contents/app/build.gradle?ref=fongmi" \
+            --jq '.content' 2>/dev/null \
+            | tr -d '\n' | base64 -d 2>/dev/null \
+            | grep -oE 'versionName[[:space:]]*"[0-9.]+"' | head -1 | grep -oE '[0-9.]+' || true)
+          LOCAL_VER=$(grep -oE 'versionName[[:space:]]*"[0-9.]+"' app/build.gradle | head -1 | grep -oE '[0-9.]+' || true)
+          RECORDED=$(cat .upstream-version 2>/dev/null || echo "")
+
+          echo "upstream=$UPSTREAM_VER"
+          echo "local=$LOCAL_VER"
+          echo "recorded=$RECORDED"
+
+          echo "upstream=$UPSTREAM_VER" >> "$GITHUB_OUTPUT"
+          echo "local=$LOCAL_VER" >> "$GITHUB_OUTPUT"
+
+          FORCE="${{ github.event.inputs.force }}"
+          if [ "$FORCE" = "true" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::强制构建"
+          elif [ -n "$UPSTREAM_VER" ] && [ "$UPSTREAM_VER" != "$RECORDED" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::检测到上游新版本 $UPSTREAM_VER（上次记录 ${RECORDED:-无}）"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::上游无新版本（$UPSTREAM_VER）"
+          fi
+
+      - name: Record upstream version
+        if: steps.ver.outputs.changed == 'true'
+        run: |
+          set -uo pipefail
+          echo "${{ steps.ver.outputs.upstream }}" > .upstream-version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .upstream-version
+          git diff --cached --quiet || git commit -m "chore(sync): track upstream FongMi/TV ${{ steps.ver.outputs.upstream }}"
+          git push || echo "::warning::推送失败（可能无权限），不影响后续构建"
+
+      - name: Trigger app build
+        if: steps.ver.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          gh workflow run app.yml --ref fongmi \
+            -f task=':app:assembleLeanbackDebug' \
+            -f artifact_name="app-${{ steps.ver.outputs.upstream }}"
+          echo "已触发 app.yml"
+
+      - name: Report
+        if: steps.ver.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          gh issue create \
+            --title "上游 FongMi/TV ${{ steps.ver.outputs.upstream }}：已触发构建" \
+            --body "上游版本 ${{ steps.ver.outputs.upstream }}（本地 ${{ steps.ver.outputs.local }}），已自动触发 app.yml 构建 APK，产物见 Actions 页面。" || \
+          echo "::warning::创建 issue 失败（可能是 fork 权限限制）"
