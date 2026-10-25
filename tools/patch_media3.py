@@ -374,7 +374,7 @@ MPV_SUBTITLE_OPTION_METHODS = '''    /** Brightness applied to bitmap (PGS) subt
 
     /** Vertical offset of the primary subtitle, in percent from the bottom. */
     public Builder setVerticalOffset(float verticalOffset) {
-      this.verticalOffset = verticalOffset;
+      this.verticalOffset = Math.round(verticalOffset);
       return this;
     }
 
@@ -462,6 +462,45 @@ MPVPLAYER_METHODS = '''  /** Selects the video decoder mode used by the next pla
   /** Returns the loaded script payload, if any. */
   public Object getScriptData() {
     return scriptData;
+  }
+
+  /** Receives native mpv log lines. */
+  public interface LogListener {
+    void onLog(String prefix, int level, String text);
+  }
+
+  /** Receives the result of an asynchronous script load. */
+  public interface ScriptLoadCallback {
+    void onLoaded(boolean success, long clientId);
+  }
+
+  /** Installs a log listener filtering on the given mpv log level. */
+  public void setLogListener(int level, LogListener listener) {}
+
+  /** Registers script files mpv should run at startup. */
+  public boolean setStartupScripts(java.util.List<java.io.File> scripts) {
+    return false;
+  }
+
+  /** Loads a single script file. */
+  public boolean loadScript(String path, ScriptLoadCallback callback) {
+    if (callback != null) callback.onLoaded(false, 0L);
+    return false;
+  }
+
+  /** Returns the JSON payload a script published under the given key. */
+  public String getScriptData(String key) {
+    return null;
+  }
+
+  /** Returns the input bindings advertised by loaded scripts. */
+  public String getInputBindings() {
+    return null;
+  }
+
+  /** Runs a script binding by name. */
+  public boolean runScriptBinding(String binding) {
+    return false;
   }
 
   /** Toggles verbose native logging. */
@@ -2654,6 +2693,92 @@ def ensure_import(path, imp):
     print(f"  ~ 补充 import {imp} -> {os.path.basename(path)}")
 
 
+MPV_STREAM_API = """  /** Pull-style stream handle handed to the native layer. */
+  public interface Stream {
+    void cancel();
+
+    void close();
+
+    int read(java.nio.ByteBuffer buffer);
+
+    long seek(long offset);
+
+    long size();
+  }
+
+  private static final java.util.concurrent.ConcurrentHashMap<String, a> STREAMS =
+      new java.util.concurrent.ConcurrentHashMap<>();
+
+  /** Registers a named stream implementation. */
+  public static void registerStream(String name, a stream) {
+    STREAMS.put(name, stream);
+  }
+
+  /** Removes a named stream implementation. */
+  public static void unregisterStream(String name) {
+    STREAMS.remove(name);
+  }
+
+  /** Returns the stream registered under the given name, or {@code null}. */
+  @Nullable
+  public static Stream openStream(String name) {
+    return (Stream) STREAMS.get(name);
+  }
+
+  /** Enqueues a command whose result is delivered as a long. */
+  public static native int enqueueCommandLongResult(long requestId, String name, String[] args);
+"""
+
+MPV_A_INTERFACE = """package is.xyz.mpv;
+
+/** Marker interface: implementations also implement {@link MPVLib.Stream}. */
+public interface a {}
+"""
+
+
+def patch_mpvlib(root):
+    """Bring is.xyz.mpv.MPVLib in line with the 5.7.8 native bridge (adds MPVLib$Stream)."""
+    base = f"{root}/libraries/mpvplayer/src/main/java/is/xyz/mpv"
+    path = f"{base}/MPVLib.java"
+    if not os.path.exists(path):
+        print("  ! MPVLib.java 不存在，跳过")
+        return
+    text = open(path, encoding="utf-8").read()
+    changed = False
+    if "interface Stream" not in text:
+        anchor = "  public static native int enqueueCommand(long requestId, String[] cmd);"
+        if anchor in text:
+            text = text.replace(anchor, anchor + "\n" + MPV_STREAM_API, 1)
+            changed = True
+        else:
+            print("  ! enqueueCommand 锚点未找到")
+    compat = "public static void eventCommandReply(long requestId, int error, long value)"
+    if compat not in text:
+        anchor2 = "  public static void eventCommandReply(long requestId, int error) {"
+        if anchor2 in text:
+            snip = (
+                "  /** Compat overload for native builds that resolve the callback as (JIJ)V. */\n"
+                "  public static void eventCommandReply(long requestId, int error, long value) {\n"
+                "    eventCommandReply(requestId, error);\n"
+                "  }\n\n"
+            )
+            text = text.replace(anchor2, snip + anchor2, 1)
+            changed = True
+    if changed:
+        open(path, "w", encoding="utf-8", newline="\n").write(text)
+        print("  ~ MPVLib 已补 Stream / STREAMS / openStream / enqueueCommandLongResult")
+    else:
+        print("  = MPVLib 已是最新")
+
+    marker = f"{base}/a.java"
+    if not os.path.exists(marker):
+        os.makedirs(base, exist_ok=True)
+        open(marker, "w", encoding="utf-8", newline="\n").write(MPV_A_INTERFACE)
+        print("  + 新增 is/xyz/mpv/a.java")
+
+    ensure_import(path, "import androidx.annotation.Nullable;")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("用法: python3 patch_media3.py <media3 仓库根目录>")
@@ -2983,7 +3108,10 @@ def main():
     sv = f"{ui}/SubtitleView.java"
     insert_before(sv, "  private List<Cue> cues;", SUBTITLEVIEW_BRIGHTNESS, "setBitmapSubtitleBrightness(float")
 
-    print("[57/57] 完成")
+    print("[58/58] 对齐 is.xyz.mpv.MPVLib（Stream / openStream / enqueueCommandLongResult）")
+    patch_mpvlib(root)
+
+    print("[58/58] 完成")
     print("\n补丁完成。")
 
 
