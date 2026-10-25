@@ -1106,6 +1106,9 @@ public final class DanmakuPlayerViewController {
 
   public void close() {}
 
+  /** Pushes a single danmaku. Takes Object so ui doesn't depend on ui_danmaku. */
+  public void post(Object danmaku) {}
+
   /** Returns the currently visible danmaku items. */
   public List getItems() {
     return Collections.emptyList();
