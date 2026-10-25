@@ -174,6 +174,21 @@ jobs:
             echo "aar 无变化，跳过提交"
           else
             git commit -m "deps(media3): add $(ls ../out/*.aar | wc -l) aars built from FongMi/media@${{ inputs.media_ref || 'release' }}"
-            git push
+            # push 可能与其他提交并发冲突，rebase 重试
+            pushed=0
+            for attempt in 1 2 3 4 5; do
+              if git push; then
+                echo "pushed on attempt $attempt"
+                pushed=1
+                break
+              fi
+              echo "push 冲突，rebase 后重试 ($attempt)"
+              git pull --rebase --autostash origin "${GITHUB_REF_NAME:-fongmi}" || { git rebase --abort 2>/dev/null || true; }
+              sleep 4
+            done
+            if [ "$pushed" = "0" ]; then
+              echo "::error::push 重试 5 次仍失败"
+              exit 1
+            fi
             echo "::notice::已提交 $(ls ../out/*.aar | wc -l) 个 aar 到 app/libs/"
           fi
