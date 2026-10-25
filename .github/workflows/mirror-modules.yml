@@ -1,0 +1,147 @@
+name: mirror-modules
+
+# 用途：把上游 FongMi/Release 的 runtime 模块（mpv / python / nodejs / quickjs / thunder / bdj）
+#       镜像到本仓库的 module release，并把 catalog.json 里的下载地址改写为本仓库。
+#
+# 为什么在 Actions 里做：
+#   GitHub Release 的 asset 没有「服务端复制」API，必须下载后再上传中转一次。
+#   放在 runner 里跑（GitHub 内网）比本地快且稳，不会因为本地网络中断产生截断文件。
+#
+# 触发：手动 + 每周一自动
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_repo:
+        description: '上游仓库（module release 所在）'
+        required: false
+        default: 'FongMi/Release'
+      upstream_tag:
+        description: '上游 release tag'
+        required: false
+        default: 'module'
+      force:
+        description: '强制覆盖已存在的 asset'
+        type: boolean
+        required: false
+        default: true
+  schedule:
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: fongmi
+
+      - name: Download upstream modules
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UP_REPO: ${{ inputs.upstream_repo || 'FongMi/Release' }}
+          UP_TAG: ${{ inputs.upstream_tag || 'module' }}
+        run: |
+          set -uo pipefail
+          mkdir -p mods
+          # 分批重试，避免单次中断导致整体失败
+          for attempt in 1 2 3; do
+            echo "::group::download attempt $attempt"
+            gh release download "$UP_TAG" -R "$UP_REPO" -D mods --clobber && break || true
+            echo "::endgroup::"
+            sleep 5
+          done
+
+          echo "--- 已下载 ---"
+          ls -lh mods | tail -20
+          COUNT=$(ls mods/*.apk 2>/dev/null | wc -l)
+          echo "APK 数量: $COUNT"
+          if [ "$COUNT" -lt 12 ]; then
+            echo "::warning::只下到 $COUNT 个 APK（期望 12），将继续镜像已有的"
+          fi
+
+      - name: Verify against catalog (size + sha256)
+        run: |
+          python3 - <<'PY'
+          import json, os, hashlib, sys
+          cat = json.load(open("mods/catalog.json", encoding="utf-8"))
+          ok = bad = 0
+          for m in cat["modules"]:
+              for a in m["artifacts"]:
+                  name = a["url"].rsplit("/", 1)[-1]
+                  p = os.path.join("mods", name)
+                  if not os.path.exists(p):
+                      print(f"MISSING {name}"); bad += 1; continue
+                  if os.path.getsize(p) != a["size"]:
+                      print(f"SIZE {name}"); bad += 1; continue
+                  if hashlib.sha256(open(p, "rb").read()).hexdigest() != a["sha256"]:
+                      print(f"SHA {name}"); bad += 1; continue
+                  ok += 1
+          print(f"verify: {ok} ok / {bad} bad")
+          if bad:
+              print("::warning::有 %d 个文件未通过校验，将跳过上传" % bad)
+          PY
+
+      - name: Rewrite catalog URLs to this repo
+        run: |
+          python3 - <<'PY'
+          import json, os
+          owner = os.environ["GITHUB_REPOSITORY"]
+          path = "mods/catalog.json"
+          cat = json.load(open(path, encoding="utf-8"))
+          n = 0
+          for m in cat["modules"]:
+              for a in m["artifacts"]:
+                  name = a["url"].rsplit("/", 1)[-1]
+                  a["url"] = f"https://github.com/{owner}/releases/download/module/{name}"
+                  n += 1
+          json.dump(cat, open(path, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+          print(f"rewritten {n} urls -> {owner}")
+          PY
+
+      - name: Ensure module release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view module -R "${{ github.repository }}" > /dev/null 2>&1 \
+            || gh release create module -R "${{ github.repository }}" \
+                 --title "Runtime modules" \
+                 --notes "Runtime module APKs mirrored from FongMi/Release."
+
+      - name: Upload modules
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          FAILED=0
+          for f in mods/catalog.json mods/*.apk; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            uploaded=0
+            for attempt in 1 2 3; do
+              if gh release upload module -R "${{ github.repository }}" "$f" --clobber; then
+                echo "✓ $name"; uploaded=1; break
+              fi
+              echo "  retry $attempt: $name"
+              sleep 5
+            done
+            [ "$uploaded" = "0" ] && { echo "✗ $name"; FAILED=$((FAILED+1)); }
+          done
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::error::$FAILED 个文件上传失败"
+            exit 1
+          fi
+
+      - name: Summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases/tags/module" \
+            --jq '.assets[] | "\(.name)\t\(.size)"' | sort | tee assets.txt
+          echo "共 $(wc -l < assets.txt) 个 asset"
