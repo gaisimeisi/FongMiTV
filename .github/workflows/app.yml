@@ -22,7 +22,7 @@ on:
         default: 'app-debug'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -133,3 +133,25 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Read app version
+        id: ver
+        run: |
+          V=$(grep -oE 'versionName[[:space:]]*"[0-9.]+"' app/build.gradle | head -1 | grep -oE '[0-9.]+' || true)
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+          echo "app version = $V"
+
+      - name: Publish GitHub Release
+        if: steps.ver.outputs.name != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.name }}
+          name: v${{ steps.ver.outputs.name }}
+          body: |
+            自动构建自 `${{ github.sha }}`
+
+            版本：`${{ steps.ver.outputs.name }}`
+            分支：`${{ github.ref_name }}`
+          files: out/*.apk
+          fail_on_unmatched_files: false
+          make_latest: true
