@@ -87,7 +87,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: media3-gradle-${{ hashFiles('media/gradle/libs.versions.toml') }}
+          key: media3-gradle-${{ hashFiles('media/gradle/libs.versions.toml', 'tools/patch_media3.py') }}
           restore-keys: media3-gradle-
 
       - name: Patch media3 (补齐作者私有扩展)
@@ -106,7 +106,7 @@ jobs:
         working-directory: media
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace \
+          ./gradlew --no-daemon --stacktrace --rerun-tasks \
             -x lint -x test \
             :lib-common:assembleRelease \
             :lib-exoplayer:assembleRelease \
