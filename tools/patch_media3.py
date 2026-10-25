@@ -2951,6 +2951,21 @@ def patch_extra_apis(root):
                 open(p6, "w", encoding="utf-8", newline="\n").write(t.replace(anchor, add, 1))
                 print("  ~ PlayerView + backendPlayer/aspectRatio")
 
+    # 6) DanmakuPlayerViewController.post —— TV 用 danmakuController::post 作 Consumer<Danmaku>
+    #    参数用 Object 而非 Danmaku：Danmaku 在 ui_danmaku 模块，ui 不能依赖它（会循环）
+    p8 = f"{ui}/danmaku/DanmakuPlayerViewController.java"
+    if os.path.exists(p8):
+        t = open(p8, encoding="utf-8").read()
+        if "public void post(" not in t:
+            anchor = "  public void close() {"
+            if anchor in t:
+                add = """  /** Pushes a single danmaku into the runner. Accepts Object so ui doesn't depend on ui_danmaku. */
+  public void post(Object danmaku) {}
+
+""" + anchor
+                open(p8, "w", encoding="utf-8", newline="\n").write(t.replace(anchor, add, 1))
+                print("  ~ DanmakuPlayerViewController + post(Object)")
+
     p7 = f"{ui}/PlayerSeekView.java"
     if os.path.exists(p7):
         t = open(p7, encoding="utf-8").read()
