@@ -43,7 +43,7 @@ const entries: Entry[] = [
     description: "Java、Python、QuickJS 的 HTTP、串流、Cookie、快取與下載",
     href: "/spider#network",
     names: [...networkNames("req", "json", "getUserAgent", "getCookie", "setCookie", "session", "batch", "map", "download", "sleep"), "net.http", "net.get", "net.post"],
-    keywords: networkMethods.flat().join(" ") + " self.net stale persist",
+    keywords: networkMethods.flat().join(" ") + " self.net stale persist 二進位 POST Content-Type 原始正文 位元組陣列",
   },
   {
     title: "執行 JavaScript",
@@ -101,10 +101,10 @@ const entries: Entry[] = [
   },
   {
     title: "Android UI",
-    description: "Java、Python 的 Context、Activity 與 Toast 接口",
+    description: "三語言 Dialog、QR Code、表單與 Android 接口",
     href: "/spider#runtime",
-    names: ["com.github.catvod.Runtime", "Runtime.context", "Runtime.activity", "Runtime.toast", "getActivity", "self.getActivity"],
-    keywords: "Application Context Activity Toast Dialog 主執行緒 jclass com.github.catvod.spider.Init",
+    names: ["com.github.catvod.Runtime", "Runtime.context", "Runtime.activity", "Runtime.toast", "getActivity", "self.getActivity", "dialog", "dialog.show", "self.dialog", "Dialog.Callback", "onAction", "button", "image", "helperText", "cancelable", "enabled", "multiselect"],
+    keywords: "Application Context Activity Toast Dialog Java Python QuickJS JSONObject dict 同步 回呼 工作執行緒 Promise await 方向鍵 焦點 遙控器 image data URI base64 圖片 helperText 欄位說明 連續對話框 多步驟 qrcode copyable QR Code 二維碼 掃碼 更新 重新取得 文字 複製 textarea select multiselect options label 多行 單選 多選 勾選 下拉 cancelable enabled 停用 inputs buttons values 欄位更新 帶入 重設 清空 close validate required minLength maxLength minItems maxItems label errors 通用表單 非同步 欄位驗證 手機 登入 驗證碼 主執行緒 jclass com.github.catvod.spider.Init",
   },
   {
     title: "爬蟲 Local 設定",
