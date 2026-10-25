@@ -134,7 +134,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     public static void push(FragmentActivity activity, String text) {
         if (TextUtils.isEmpty(text)) return;
         Uri uri = UriUtil.uri(text);
-        if (FileChooser.isFileSource(uri)) FileChooser.getFileUri(uri, fileUri -> file(activity, fileUri));
+        if (FileChooser.isFileSource(uri)) file(activity, uri);
         else start(activity, Sniffer.getUrl(text));
     }
 
@@ -1176,18 +1176,25 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void setArtwork() {
-        ImgUtil.load(this, mHistory.getVodPic(), new CustomTarget<>() {
-            @Override
-            public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
-                mBinding.player.setDefaultArtwork(resource);
-            }
-
-            @Override
-            public void onLoadFailed(@Nullable Drawable errorDrawable) {
-                mBinding.player.setDefaultArtwork(errorDrawable);
-            }
-        });
+        ImgUtil.load(this, mHistory.getVodPic(), mArtworkTarget);
     }
+
+    private final CustomTarget<Drawable> mArtworkTarget = new CustomTarget<>() {
+        @Override
+        public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
+            mBinding.player.setDefaultArtwork(resource);
+        }
+
+        @Override
+        public void onLoadFailed(@Nullable Drawable errorDrawable) {
+            mBinding.player.setDefaultArtwork(errorDrawable);
+        }
+
+        @Override
+        public void onLoadCleared(@Nullable Drawable placeholder) {
+            mBinding.player.setDefaultArtwork(null);
+        }
+    };
 
     private void setPartAdapter() {
         mPartAdapter.addAll(PartUtil.split(mHistory.getVodName()));
@@ -1419,7 +1426,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (event.getType() == RefreshEvent.Type.DETAIL) mVod.requestDetail();
         else if (event.getType() == RefreshEvent.Type.PLAYER) mVod.refresh();
         else if (event.getType() == RefreshEvent.Type.KEEP) checkKeepImg();
-        else if (event.getType() == RefreshEvent.Type.VOD) mVod.updateVod(event.getVod());
         else if (event.getType() == RefreshEvent.Type.SUBTITLE) player().setSub(Sub.from(event.getPath()));
         else if (event.getType() == RefreshEvent.Type.DANMAKU) player().setDanmaku(Danmaku.from(event.getPath()));
     }

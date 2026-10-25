@@ -102,7 +102,6 @@ public class LiveActivity extends PlaybackActivity implements TouchInput.Listene
     private List<Group> mHides;
     private Group mGroup;
     private Channel mChannel;
-    private Channel mRestoreChannel;
     private String mPlaybackKey;
     private boolean rotate;
     private int count;
@@ -294,9 +293,7 @@ public class LiveActivity extends PlaybackActivity implements TouchInput.Listene
         List<Group> items = new ArrayList<>();
         for (Group group : live.getGroups()) (group.isHidden() ? mHides : items).add(group);
         mGroupAdapter.addAll(items);
-        int[] position = LiveConfig.get().findChannelPosition(mRestoreChannel, items);
-        mRestoreChannel = null;
-        setPosition(position[0] == -1 ? LiveConfig.get().findKeepPosition(items) : position);
+        setPosition(LiveConfig.get().findKeepPosition(items));
     }
 
     private void setWidth(Live live) {
@@ -959,7 +956,6 @@ public class LiveActivity extends PlaybackActivity implements TouchInput.Listene
 
     @Override
     public void setLive(Live item) {
-        if (mChannel != null) mRestoreChannel = Channel.create(mChannel);
         if (item.isSelected()) item.getGroups().clear();
         LiveConfig.get().setHome(item);
         player().reset();
@@ -1109,6 +1105,11 @@ public class LiveActivity extends PlaybackActivity implements TouchInput.Listene
     }
 
     @Override
+    public boolean isScaleEnabled() {
+        return !isInPictureInPictureMode();
+    }
+
+    @Override
     public void onPinchScale(PinchScale.Axis axis, float scaleX, float scaleY) {
         if (!mScaleFeedback.isActive()) PlaybackAction.hideSpeedHint(mBinding.widget.message);
         mScaleFeedback.show(axis, scaleX, scaleY);
@@ -1133,7 +1134,7 @@ public class LiveActivity extends PlaybackActivity implements TouchInput.Listene
 
     @Override
     public void onSeeking(long time) {
-        if (player().isLive()) return;
+        if (!player().canSeek()) return;
         mBinding.widget.statusIcon.setImageResource(time > 0 ? R.drawable.ic_widget_forward : R.drawable.ic_widget_rewind);
         setSeekPreviewTime(mBinding.widget.time, time);
         mBinding.widget.seek.setVisibility(View.VISIBLE);
@@ -1142,7 +1143,7 @@ public class LiveActivity extends PlaybackActivity implements TouchInput.Listene
 
     @Override
     public void onSeekEnd(long time) {
-        if (player().isLive()) return;
+        if (!player().canSeek()) return;
         seekTo(time);
     }
 

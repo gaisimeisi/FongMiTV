@@ -86,7 +86,7 @@ public class VodPlaybackController {
         host.showDetailMessage(result.getMsg());
     }
 
-    public void updateVod(Vod item) {
+    private void updateVod(Vod item) {
         History history = state.getHistory();
         if (history == null) return;
         replaceVodId(history, item.getId());
@@ -386,7 +386,7 @@ public class VodPlaybackController {
     }
 
     public void onPlaybackSeek() {
-        if (state.getPlayingRequest() != null) preloader.update(state.getQuality());
+        preloader.onPlayingChanged(host.isPlayerPlaying());
     }
 
     public void onTimeChanged(long time, long position, long duration) {

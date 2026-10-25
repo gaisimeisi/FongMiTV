@@ -137,9 +137,12 @@ curl -G "http://127.0.0.1:9978/action" --data-urlencode "do=danmaku" --data-urle
               path="刷新範例"
             >{`curl -G "http://127.0.0.1:9978/action" --data-urlencode "do=refresh" --data-urlencode "type=category"
 
-curl -G "http://127.0.0.1:9978/action" --data-urlencode "do=refresh" --data-urlencode "type=subtitle" --data-urlencode "path=https://example.com/subtitle.srt"
-
-curl "http://127.0.0.1:9978/action?do=refresh&type=vod" --data-urlencode 'json={"vod_id":"demo-1","vod_name":"範例項目"}'`}</CodeBlock>
+curl -G "http://127.0.0.1:9978/action" --data-urlencode "do=refresh" --data-urlencode "type=subtitle" --data-urlencode "path=https://example.com/subtitle.srt"`}</CodeBlock>
+            <h3 id="vod-refresh">播放詳情更新</h3>
+            <p>
+              播放詳情使用 <code>playerContent</code>／<code>play</code> 回傳結果的 <code>list[0]</code>。
+              格式與套用時機見 <Link className="inline-link" href="/spider#playback-details">爬蟲詳情更新</Link>。
+            </p>
             <h3>播放、搜尋、配置與檔案</h3>
             <CodeBlock
               label="HTTP"
@@ -291,6 +294,7 @@ curl --data-urlencode "type=speed" --data-urlencode "speed=1.5" "http://127.0.0.
               <code>seek</code> 的 <code>position</code> 是非負整數毫秒，超過總長時跳到結尾；
               缺少、格式錯誤或超過 64 位元整數範圍時回傳 400。
               <code>canSeek</code> 為 false 時回傳 409。
+              支援 <Link className="inline-link" href="/spider#timeshift">直播回看</Link> 的來源也可跳轉，位置以目前回看範圍的起點計算。
               <code>speed</code> 必須是 0.1–5.0 範圍內的有限數值，否則回傳 400；
               <code>canSetSpeed</code> 為 false 時回傳 409。
             </p>

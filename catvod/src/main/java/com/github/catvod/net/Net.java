@@ -69,6 +69,11 @@ public final class Net implements AutoCloseable {
         boolean setCookie(String url, String cookie);
     }
 
+    @Keep
+    public interface Mapper<T, R> {
+        R apply(T item, int index) throws Exception;
+    }
+
     static final ScheduledExecutorService DEADLINES = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "Spider WebSocket timeout");
         thread.setDaemon(true);
@@ -85,6 +90,7 @@ public final class Net implements AutoCloseable {
     private final Set<NetExchange> sockets = new HashSet<>();
     private final Set<NetSocket> connections = new HashSet<>();
     private final Set<Net> children = new HashSet<>();
+    private final Set<NetMap<?, ?>> maps = new HashSet<>();
     private final NetCache cache;
     private boolean closed;
 
@@ -352,6 +358,37 @@ public final class Net implements AutoCloseable {
             return Result.failure(interrupted(e));
         } catch (ExecutionException e) {
             return Result.failure(e.getCause());
+        }
+    }
+
+    public <T, R> List<R> map(List<T> items, Mapper<T, R> mapper) throws Exception {
+        return map(items, mapper, 4);
+    }
+
+    public <T, R> List<R> map(List<T> items, Mapper<T, R> mapper, int limit) throws Exception {
+        if (items == null || mapper == null || limit < 1) throw new IllegalArgumentException("Invalid map options");
+        NetMap<T, R> mapping;
+        synchronized (lock) {
+            checkOpen();
+            if (items.isEmpty()) return new ArrayList<>();
+            mapping = new NetMap<>(items, mapper, limit, this::removeMap);
+            maps.add(mapping);
+        }
+        try {
+            return mapping.start().get();
+        } catch (InterruptedException error) {
+            mapping.cancel();
+            throw interrupted(error);
+        } catch (ExecutionException error) {
+            if (error.getCause() instanceof Exception cause) throw cause;
+            if (error.getCause() instanceof Error cause) throw cause;
+            throw new IllegalStateException(error.getCause());
+        }
+    }
+
+    private void removeMap(NetMap<?, ?> mapping) {
+        synchronized (lock) {
+            maps.remove(mapping);
         }
     }
 
@@ -640,7 +677,7 @@ public final class Net implements AutoCloseable {
 
     private Call newCall(Request request, NetOptions options) throws IOException {
         OkHttpClient http = builder(options).addNetworkInterceptor(chain -> interceptCookies(chain, request, options)).build();
-        Call call = http.newCall(request);
+        Call call = http.newCall(request.newBuilder().tag(NetOptions.class, options).build());
         synchronized (lock) {
             if (closed) throw new InterruptedIOException("Network owner closed");
             calls.add(call);
@@ -732,7 +769,7 @@ public final class Net implements AutoCloseable {
         }
     }
 
-    private Request socketRequest(String url, NetOptions options) throws IOException {
+    Request socketRequest(String url, NetOptions options) throws IOException {
         Request request = NetRequest.build(url, options, true);
         return withCookies(request, request.url(), request.header("Cookie"), options);
     }
@@ -750,7 +787,7 @@ public final class Net implements AutoCloseable {
         if (options.getTimeout() <= 0) throw new IllegalArgumentException("WebSocket requires a connect deadline");
         Request request = socketRequest(url, options);
         OkHttpClient client = socketClient(options).newBuilder().pingInterval(options.getPing(), TimeUnit.MILLISECONDS).build();
-        NetSocket socket = new NetSocket(this, options, listener);
+        NetSocket socket = new NetSocket(this, url, options, listener);
         synchronized (lock) {
             checkOpen();
             connections.add(socket);
@@ -801,6 +838,7 @@ public final class Net implements AutoCloseable {
         List<NetExchange> active;
         List<NetSocket> connected;
         List<Net> sessions;
+        List<NetMap<?, ?>> mappings;
         synchronized (lock) {
             if (closed) return;
             closed = true;
@@ -810,9 +848,12 @@ public final class Net implements AutoCloseable {
             active = new ArrayList<>(sockets);
             connected = new ArrayList<>(connections);
             sessions = new ArrayList<>(children);
+            mappings = new ArrayList<>(maps);
+            maps.clear();
             children.clear();
         }
         cache.close();
+        for (NetMap<?, ?> mapping : mappings) mapping.cancel();
         if (cookies instanceof SessionCookies local) local.close();
         Throwable failure = null;
         failure = cancelCalls(pending, failure);

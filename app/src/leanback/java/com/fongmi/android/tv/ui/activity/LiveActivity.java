@@ -98,7 +98,6 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     private List<Group> mHides;
     private Group mGroup;
     private Channel mChannel;
-    private Channel mRestoreChannel;
     private String mPlaybackKey;
     private int count;
 
@@ -284,9 +283,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
         List<Group> items = new ArrayList<>();
         for (Group group : live.getGroups()) (group.isHidden() ? mHides : items).add(group);
         mGroupAdapter.addAll(items);
-        int[] position = LiveConfig.get().findChannelPosition(mRestoreChannel, items);
-        mRestoreChannel = null;
-        setPosition(position[0] == -1 ? LiveConfig.get().findKeepPosition(items) : position);
+        setPosition(LiveConfig.get().findKeepPosition(items));
     }
 
     private void setWidth(Live live) {
@@ -913,7 +910,6 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     @Override
     public void setLive(Live item) {
-        if (mChannel != null) mRestoreChannel = Channel.create(mChannel);
         if (item.isSelected()) item.getGroups().clear();
         LiveConfig.get().setHome(item);
         player().reset();
@@ -1043,7 +1039,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     @Override
     public void onSeeking(long time) {
-        if (player().isLive()) return;
+        if (!player().canSeek()) return;
         mBinding.widget.center.setVisibility(View.VISIBLE);
         setSeekPreviewTime(mBinding.widget.duration, mBinding.widget.position, time);
         mBinding.widget.statusIcon.setImageResource(time > 0 ? R.drawable.ic_widget_forward : R.drawable.ic_widget_rewind);
@@ -1064,13 +1060,13 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     @Override
     public void onKeyLeft(long time) {
-        if (player().isLive()) prevLine();
+        if (!player().canSeek()) prevLine();
         else App.post(() -> seekTo(time), 250);
     }
 
     @Override
     public void onKeyRight(long time) {
-        if (player().isLive()) nextLine(true);
+        if (!player().canSeek()) nextLine(true);
         else App.post(() -> seekTo(time), 250);
     }
 

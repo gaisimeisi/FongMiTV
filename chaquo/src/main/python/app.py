@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
 from _tv_loader import Runtime, SourceNotFoundError
-from _tv_net import LocalAdapter, NetAdapter
+from _tv_net import JsAdapter, LocalAdapter, NetAdapter
 
 
 def spider(cache, api, site_key="", net=None):
@@ -60,9 +60,10 @@ def init(ru, extend):
         raise
 
 
-def bindNet(ru, net, user_agent=None, local=None):
-    ru.net = NetAdapter(net, user_agent)
+def bindNet(ru, net, user_agent=None, local=None, streams=None, js=None):
+    ru.net = NetAdapter(net, user_agent, streams)
     ru.local = LocalAdapter(local)
+    ru.js = JsAdapter(js)
 
 
 def homeContent(ru, filter):
@@ -108,6 +109,13 @@ def localProxy(ru, param):
 
 def action(ru, action):
     return json2str(ru.action(action))
+
+
+def danmaku(ru, id, emitter):
+    stop = ru.danmaku(id, lambda item: emitter.emit(json.dumps(item, ensure_ascii=False, allow_nan=False)))
+    if not callable(stop):
+        raise TypeError("danmaku must return a stop function")
+    return stop
 
 
 def destroy(ru):
