@@ -5,7 +5,8 @@ import org.json.JSONObject;
 
 public class Github {
 
-    private static final String REPO = "FongMi/Release";
+    // [local-build] Point update checks at our own fork's releases.
+    private static final String REPO = "gaisimeisi/FongMiTV";
 
     public static String getReleases() {
         return "https://api.github.com/repos/" + REPO + "/releases?per_page=100";
