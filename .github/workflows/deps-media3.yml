@@ -102,6 +102,15 @@ jobs:
           grep -q "setDiscMenuController" media/libraries/ui/src/main/java/androidx/media3/ui/PlayerView.java
           echo "补丁校验通过"
 
+      - name: Purge gradle build cache
+        run: |
+          set -uo pipefail
+          echo "--- before ---"
+          du -sh ~/.gradle/caches/build-cache-1 2>/dev/null || echo "(no build-cache-1)"
+          rm -rf ~/.gradle/caches/build-cache-1
+          echo "--- after ---"
+          ls -d ~/.gradle/caches/build-cache-1 2>/dev/null || echo "(removed)"
+
       - name: Build media3 modules
         working-directory: media
         run: |
