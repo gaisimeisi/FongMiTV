@@ -2897,8 +2897,26 @@ def patch_extra_apis(root):
         }"""
             if old in t:
                 t = t.replace(old, new, 1)
-                t = t.replace("  private static final LibraryLoader LOADER =",
-                              "  private static volatile boolean customLoaderSucceeded;\n\n  private static final LibraryLoader LOADER =", 1)
+                extra = '''  /** Pluggable native loader, so the app can decide how libmpv is unpacked. */
+  public interface Loader {
+    boolean load();
+  }
+
+  private static volatile Loader libraryLoader;
+  private static volatile boolean customLoaderSucceeded;
+
+  /** Installs a custom native library loader. */
+  public static void setLibraryLoader(Loader loader) {
+    libraryLoader = loader;
+  }
+
+  /** Returns the installed loader, if any. */
+  public static Loader getLibraryLoader() {
+    return libraryLoader;
+  }
+
+  private static final LibraryLoader LOADER ='''
+                t = t.replace("  private static final LibraryLoader LOADER =", extra, 1)
                 open(p5, "w", encoding="utf-8", newline="\n").write(t)
                 print("  ~ MpvLibrary + custom loader")
 
