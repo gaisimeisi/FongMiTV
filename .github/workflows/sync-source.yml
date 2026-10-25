@@ -1,0 +1,142 @@
+name: sync-source
+
+# 用途：把上游 FongMi/TV 的源码同步进本仓库，同时保留我们的定制（aar / 补丁 / 下载地址 / 拦截器）。
+# 触发：手动 + 每天 UTC 17:00
+#
+# 保留清单（不会被上游覆盖）：
+#   app/libs/                         自编 media3 aar
+#   tools/patch_media3.py             media3 补丁脚本
+#   .github/                          workflows
+#   app/build.gradle                  仅保留 runtimeCatalog 一行注入，其余取上游
+#   app/.../utils/Github.java         版本检查仓库指向
+#   catvod/.../utils/RuntimeModule.java   自签 APK 的 signer 放宽
+#   catvod/.../net/OkHttp.java        镜像拦截器注册
+#   catvod/.../net/GitHubMirrorInterceptor.java   新增
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: '上游分支/commit'
+        required: false
+        default: 'fongmi'
+      commit:
+        description: '同步后自动提交'
+        type: boolean
+        required: false
+        default: true
+  schedule:
+    - cron: '0 17 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout our repo
+        uses: actions/checkout@v4
+        with:
+          ref: fongmi
+          path: ours
+          fetch-depth: 1
+
+      - name: Checkout upstream
+        uses: actions/checkout@v4
+        with:
+          repository: FongMi/TV
+          ref: ${{ inputs.upstream_ref || 'fongmi' }}
+          path: up
+          fetch-depth: 1
+
+      - name: Show versions
+        run: |
+          UP=$(grep -oE 'versionName[[:space:]]*"[0-9.]+"' up/app/build.gradle | head -1)
+          OURS=$(grep -oE 'versionName[[:space:]]*"[0-9.]+"' ours/app/build.gradle | head -1)
+          echo "upstream: $UP"
+          echo "ours    : $OURS"
+          echo "### 版本对比" >> $GITHUB_STEP_SUMMARY
+          echo "- 上游：\`$UP\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 本地：\`$OURS\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Save protected files
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/keep
+          cp ours/app/build.gradle /tmp/keep/app-build.gradle
+          cp ours/app/src/main/java/com/fongmi/android/tv/utils/Github.java /tmp/keep/Github.java
+          cp ours/catvod/src/main/java/com/github/catvod/utils/RuntimeModule.java /tmp/keep/RuntimeModule.java
+          cp ours/catvod/src/main/java/com/github/catvod/net/OkHttp.java /tmp/keep/OkHttp.java
+          cp ours/catvod/src/main/java/com/github/catvod/net/GitHubMirrorInterceptor.java /tmp/keep/GitHubMirrorInterceptor.java
+          ls -l /tmp/keep
+
+      - name: Rsync upstream into ours
+        run: |
+          set -uo pipefail
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='app/libs/' \
+            --exclude='app/build.gradle' \
+            --exclude='app/src/main/java/com/fongmi/android/tv/utils/Github.java' \
+            --exclude='catvod/src/main/java/com/github/catvod/utils/RuntimeModule.java' \
+            --exclude='catvod/src/main/java/com/github/catvod/net/OkHttp.java' \
+            --exclude='catvod/src/main/java/com/github/catvod/net/GitHubMirrorInterceptor.java' \
+            up/ ours/
+          echo "--- rsync done ---"
+
+      - name: Restore protected files & re-inject our changes
+        run: |
+          set -euo pipefail
+          # 上游的 build.gradle（含新版本号）为基础
+          cp up/app/build.gradle ours/app/build.gradle
+          cp /tmp/keep/Github.java ours/app/src/main/java/com/fongmi/android/tv/utils/Github.java
+          cp /tmp/keep/RuntimeModule.java ours/catvod/src/main/java/com/github/catvod/utils/RuntimeModule.java
+          cp /tmp/keep/OkHttp.java ours/catvod/src/main/java/com/github/catvod/net/OkHttp.java
+          cp /tmp/keep/GitHubMirrorInterceptor.java ours/catvod/src/main/java/com/github/catvod/net/GitHubMirrorInterceptor.java
+
+          # 重新注入 runtimeCatalog
+          python3 - <<'PY'
+          import re, pathlib
+          p = pathlib.Path("ours/app/build.gradle")
+          s = p.read_text(encoding="utf-8")
+          ours = "https://github.com/gaisimeisi/FongMiTV/releases/download/module/catalog.json"
+          if "runtimeCatalog" in s:
+              s = re.sub(r"manifestPlaceholders\.runtimeCatalog\s*=\s*.*", 
+                         f"manifestPlaceholders.runtimeCatalog = providers.gradleProperty('tvRuntimeCatalog').getOrElse('{ours}')",
+                         s, count=1)
+          else:
+              s = s.replace("android {", f"android {{\n        // injected by sync-source\n        manifestPlaceholders.runtimeCatalog = providers.gradleProperty('tvRuntimeCatalog').getOrElse('{ours}')\n", 1)
+          p.write_text(s, encoding="utf-8")
+          print("runtimeCatalog ->", ours)
+          PY
+
+          echo "--- 版本 ---"
+          grep -nE 'versionCode|versionName' ours/app/build.gradle | head -3
+          echo "--- 我们的注入 ---"
+          grep -n "gaisimeisi" ours/app/build.gradle ours/app/src/main/java/com/fongmi/android/tv/utils/Github.java | head -5
+
+      - name: Diff summary
+        run: |
+          cd ours
+          git status --short | head -40
+          echo "---"
+          echo "变更文件数: $(git status --porcelain | wc -l)"
+
+      - name: Commit & push
+        run: |
+          set -uo pipefail
+          cd ours
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "没有变更，跳过提交"
+            exit 0
+          fi
+          git add -A
+          UPVER=$(grep -oE 'versionName[[:space:]]*"[0-9.]+"' app/build.gradle | head -1 | grep -oE '[0-9.]+' || echo unknown)
+          git commit -m "chore(sync): merge upstream FongMi/TV $UPVER"
+          git push || echo "::warning::推送失败"
