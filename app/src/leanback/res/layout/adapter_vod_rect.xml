@@ -15,85 +15,56 @@
         android:background="@color/black_20"
         app:shapeAppearanceOverlay="@style/Vod.Grid" />
 
-    <!-- 左上角：年份 -->
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/year"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignStart="@+id/image"
-        android:layout_alignTop="@+id/image"
-        android:layout_marginStart="6dp"
-        android:layout_marginTop="6dp"
         android:background="@drawable/shape_vod_year"
-        android:paddingStart="5dp"
-        android:paddingTop="2dp"
-        android:paddingEnd="5dp"
-        android:paddingBottom="2dp"
         android:singleLine="true"
         android:textColor="@color/white"
-        android:textSize="12sp"
+        android:textSize="14sp"
         android:visibility="gone"
         tools:text="2022"
         tools:visibility="visible" />
 
-    <!-- 左上角：站点，紧跟年份 -->
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/site"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/year"
-        android:layout_marginStart="6dp"
-        android:layout_toEndOf="@+id/year"
         android:background="@drawable/shape_vod_site"
-        android:paddingStart="5dp"
-        android:paddingTop="2dp"
-        android:paddingEnd="5dp"
-        android:paddingBottom="2dp"
         android:singleLine="true"
         android:textColor="@color/white"
-        android:textSize="12sp"
+        android:textSize="14sp"
         android:visibility="gone"
         tools:text="泥巴"
         tools:visibility="visible" />
 
-    <!-- 片名：压在海报底部，半透明黑底铺满整宽（影视仓风格） -->
-    <com.google.android.material.textview.MaterialTextView
-        android:id="@+id/name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignBottom="@+id/image"
-        android:layout_alignStart="@+id/image"
-        android:layout_alignEnd="@+id/image"
-        android:background="@drawable/shape_vod_name"
-        android:ellipsize="end"
-        android:gravity="center_vertical|start"
-        android:maxLines="1"
-        android:paddingStart="8dp"
-        android:paddingTop="6dp"
-        android:paddingEnd="8dp"
-        android:paddingBottom="6dp"
-        android:textColor="@color/white"
-        android:textSize="14sp"
-        tools:text="蜘蛛人" />
-
-    <!-- 备注（正片 / 更新至xx集）：压在片名上方，左下角 -->
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/remark"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_above="@+id/name"
-        android:layout_alignStart="@+id/image"
-        android:layout_marginStart="6dp"
-        android:layout_marginBottom="4dp"
         android:background="@drawable/shape_vod_remark"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingStart="5dp"
-        android:paddingTop="2dp"
-        android:paddingEnd="5dp"
-        android:paddingBottom="2dp"
+        android:ellipsize="marquee"
+        android:singleLine="true"
         android:textColor="@color/white"
-        android:textSize="12sp"
-        tools:text="正片" />
+        android:textSize="14sp"
+        tools:text="1080p" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/image"
+        android:layout_alignStart="@+id/image"
+        android:layout_alignEnd="@+id/image"
+        android:background="@drawable/shape_vod_name"
+        android:ellipsize="marquee"
+        android:gravity="center"
+        android:padding="6dp"
+        android:singleLine="true"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        tools:text="蜘蛛人" />
 
 </RelativeLayout>
