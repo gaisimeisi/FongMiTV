@@ -3084,65 +3084,37 @@ def patch_mpv_options(root):
     """补齐 TV 版 MpvSubtitleOptions.Builder / MpvPlayerConfig.Builder / MpvPlayer 的链式 API。"""
     mpv = f"{root}/libraries/mpvplayer/src/main/java/androidx/media3/mpvplayer"
 
-    # 1) MpvSubtitleOptions.Builder
+    # 1) MpvSubtitleOptions.Builder —— 逐个方法检查，只补缺失的
     p1 = f"{mpv}/MpvSubtitleOptions.java"
     if os.path.exists(p1):
         t = open(p1, encoding="utf-8").read()
-        if "setFontsDirectory" not in t:
-            anchor = "  public static final class Builder {"
-            add = anchor + """
-
-    public Builder setFontsDirectory(String directory) {
-      return this;
-    }
-
-    public Builder setFontFamily(String family) {
-      return this;
-    }
-
-    public Builder setPosition(double position) {
-      return this;
-    }
-
-    public Builder setVerticalOffset(double offset) {
-      return this;
-    }
-
-    public Builder setScale(double scale) {
-      return this;
-    }
-
-    public Builder setSecondarySubtitlePosition(double position) {
-      return this;
-    }
-
-    public Builder setSecondaryVerticalOffset(double offset) {
-      return this;
-    }
-
-    public Builder setSecondaryAssStyleOverride(boolean override) {
-      return this;
-    }
-
-    public Builder setCustomStyle(
-        int primaryColor, int outlineColor, double fontSize, boolean bold,
-        boolean italic, boolean borderStyle, int shadowColor) {
-      return this;
-    }
-
-    public Builder setSystemCaptionStyle() {
-      return this;
-    }
-
-    public Builder setDefaultStyle(
-        int foregroundColor, int backgroundColor, int edgeType, int edgeColor,
-        double edgeWidth, double shadowOffset) {
-      return this;
-    }"""
-            if anchor in t:
-                t = t.replace(anchor, add, 1)
-                open(p1, "w", encoding="utf-8", newline="\n").write(t)
-                print("  ~ MpvSubtitleOptions.Builder + 12 个字幕选项方法")
+        anchor = "  public static final class Builder {"
+        methods = [
+            ("setFontsDirectory", "    public Builder setFontsDirectory(String directory) {\n      return this;\n    }\n"),
+            ("setFontFamily", "    public Builder setFontFamily(String family) {\n      return this;\n    }\n"),
+            ("setPosition", "    public Builder setPosition(double position) {\n      return this;\n    }\n"),
+            ("setVerticalOffset", "    public Builder setVerticalOffset(double offset) {\n      return this;\n    }\n"),
+            ("setScale", "    public Builder setScale(double scale) {\n      return this;\n    }\n"),
+            ("setSecondarySubtitlePosition", "    public Builder setSecondarySubtitlePosition(double position) {\n      return this;\n    }\n"),
+            ("setSecondaryVerticalOffset", "    public Builder setSecondaryVerticalOffset(double offset) {\n      return this;\n    }\n"),
+            ("setSecondaryAssStyleOverride", "    public Builder setSecondaryAssStyleOverride(boolean override) {\n      return this;\n    }\n"),
+            ("setCustomStyle", "    public Builder setCustomStyle(\n        int primaryColor, int outlineColor, double fontSize, boolean bold,\n        boolean italic, boolean borderStyle, int shadowColor) {\n      return this;\n    }\n"),
+            ("setSystemCaptionStyle", "    public Builder setSystemCaptionStyle() {\n      return this;\n    }\n"),
+            ("setDefaultStyle", "    public Builder setDefaultStyle(\n        int foregroundColor, int backgroundColor, int edgeType, int edgeColor,\n        double edgeWidth, double shadowOffset) {\n      return this;\n    }\n"),
+        ]
+        added = []
+        for name, body in methods:
+            if (name + "(") in t:
+                continue
+            if anchor not in t:
+                break
+            t = t.replace(anchor, anchor + "\n\n" + body, 1)
+            added.append(name)
+        if added:
+            open(p1, "w", encoding="utf-8", newline="\n").write(t)
+            print(f"  ~ MpvSubtitleOptions.Builder + {len(added)} 个: {', '.join(added)}")
+        else:
+            print("  = MpvSubtitleOptions.Builder 无需补")
 
     # 2) MpvPlayerConfig.Builder
     p2 = f"{mpv}/MpvPlayerConfig.java"
