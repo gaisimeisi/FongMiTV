@@ -1739,7 +1739,7 @@ public final class LibassFontFile {
   }
 
   /** Resolves the font family name for a font file. */
-  public static String getFamilyName(java.io.File file) {
+  public static String getFamilyName(java.io.File file) throws java.io.IOException {
     String name = file == null ? null : file.getName();
     if (name == null) return "";
     int dot = name.lastIndexOf('.');
@@ -1821,6 +1821,17 @@ public final class LibassPlaybackSession {
   }
 
   public void setPreloadMediaItem(@Nullable MediaItem item) {}
+
+  /** Enables / disables pulling transcript content for the current item. */
+  public void setContentEnabled(boolean enabled) {}
+
+  /** Whether the given format's transcript can be retried. */
+  public boolean canRetryContent(androidx.media3.common.Format format) {
+    return false;
+  }
+
+  /** Retries loading transcript content for the given format. */
+  public void retryContent(androidx.media3.common.Format format) {}
 
   public void setBottomPositionFraction(float fraction) {}
 
