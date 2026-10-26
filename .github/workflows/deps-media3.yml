@@ -188,14 +188,15 @@ jobs:
           COUNT=$(ls -1 out/*.aar 2>/dev/null | wc -l)
           echo "共 $COUNT 个 aar" | tee -a "$GITHUB_STEP_SUMMARY"
           # 关键扩展包必须存在
-          for must in mpvplayer danmaku; do
+          # mpvplayer 由本仓库维护，不参与上游产物校验
+          for must in danmaku; do
             if ! ls out/*"$must"*.aar >/dev/null 2>&1; then
               echo "::error::缺少 $must 的 aar —— 检查 media_ref 是否用了 release-1.11.0-fongmi 分支"
               exit 1
             fi
           done
-          if [ "$COUNT" -lt 13 ]; then
-            echo "::error::只收集到 $COUNT 个 aar，少于预期的 14 个，检查模块名"
+          if [ "$COUNT" -lt 11 ]; then
+            echo "::error::只收集到 $COUNT 个 aar，少于预期的 12 个，检查模块名"
             exit 1
           fi
 
