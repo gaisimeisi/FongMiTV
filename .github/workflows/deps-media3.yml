@@ -174,9 +174,12 @@ jobs:
           # 统一加 media3- 前缀避免覆盖（TV 用 fileTree 引入，名字无所谓）
           find media/libraries -path "*/outputs/aar/*.aar" -type f | while read -r f; do
             base=$(basename "$f")
+            # mpvplayer / decoder-ffmpeg 由本仓库自己维护（含 unified native + 补丁），
+            # 从上游编出来的同名 aar 会与之重复，直接跳过。
             case "$base" in
               lib-mpvplayer-release.aar|lib-decoder-ffmpeg-release.aar)
-                base="media3-$base" ;;
+                echo "  跳过由本仓库维护的 $base"
+                continue ;;
             esac
             cp "$f" "out/$base"
           done
