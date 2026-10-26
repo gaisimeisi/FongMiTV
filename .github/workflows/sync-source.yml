@@ -127,6 +127,7 @@ jobs:
           echo "变更文件数: $(git status --porcelain | wc -l)"
 
       - name: Commit & push
+        id: commit
         run: |
           set -uo pipefail
           cd ours
@@ -134,9 +135,36 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if git diff --quiet && git diff --cached --quiet; then
             echo "没有变更，跳过提交"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git add -A
           UPVER=$(grep -oE 'versionName[[:space:]]*"[0-9.]+"' app/build.gradle | head -1 | grep -oE '[0-9.]+' || echo unknown)
           git commit -m "chore(sync): merge upstream FongMi/TV $UPVER"
-          git push || echo "::warning::推送失败"
+          pushed=0
+          for attempt in 1 2 3 4 5; do
+            if git push; then pushed=1; break; fi
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME:-fongmi}" || { git rebase --abort 2>/dev/null || true; }
+            sleep 4
+          done
+          if [ "$pushed" = "0" ]; then
+            echo "::error::push 重试 5 次仍失败"
+            exit 1
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "已合并上游 $UPVER"
+
+      # 源码变了，media3 aar 必须跟着重编，否则 app 会因缺 API 编译失败
+      - name: Trigger deps-media3 (rebuild aars)
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          echo "上游源码有变更，触发 deps-media3 重建 aar"
+          gh workflow run deps-media3.yml \
+            --repo "${{ github.repository }}" \
+            --ref fongmi \
+            -f media_ref=release-1.11.0-fongmi \
+            -f commit=true
+          echo "::notice::已触发 deps-media3"
