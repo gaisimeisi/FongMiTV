@@ -3187,6 +3187,47 @@ def patch_mpv_options(root):
 
 
 
+def patch_tv_ui_apis(root):
+    """TV 5.8.1 新增的 UI 层依赖：SubtitleContent.State 的 PARTIAL/TRUNCATED、MpvPlayer.setAudioFilterListener。"""
+    common = f"{root}/libraries/common/src/main/java/androidx/media3/common"
+    mpv = f"{root}/libraries/mpvplayer/src/main/java/androidx/media3/mpvplayer"
+
+    # 1) SubtitleContent.State 加 PARTIAL / TRUNCATED
+    p1 = f"{common}/text/SubtitleContent.java"
+    if os.path.exists(p1):
+        t = open(p1, encoding="utf-8").read()
+        added = []
+        if "PARTIAL" not in t:
+            anchor = "    /** Format not supported. */\n    UNSUPPORTED"
+            if anchor in t:
+                t = t.replace(anchor, anchor + ",\n    /** Only partially decoded. */\n    PARTIAL,\n    /** Truncated because of a memory limit. */\n    TRUNCATED", 1)
+                added.append("PARTIAL")
+                added.append("TRUNCATED")
+        if added:
+            open(p1, "w", encoding="utf-8", newline="\n").write(t)
+            print(f"  ~ SubtitleContent.State + {', '.join(added)}")
+        else:
+            print("  = SubtitleContent.State 无需补")
+
+    # 2) MpvPlayer.setAudioFilterListener
+    p2 = f"{mpv}/MpvPlayer.java"
+    if os.path.exists(p2):
+        t = open(p2, encoding="utf-8").read()
+        if "setAudioFilterListener(" not in t:
+            idx = t.find("\n  public ")
+            if idx > 0:
+                add = """
+
+  /** Listener fired when the audio filter chain is applied (TV extension). */
+  public void setAudioFilterListener(Object listener) {}
+"""
+                t = t[:idx] + add + t[idx:]
+                open(p2, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ MpvPlayer + setAudioFilterListener")
+        else:
+            print("  = MpvPlayer.setAudioFilterListener 已有")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("用法: python3 patch_media3.py <media3 仓库根目录>")
@@ -3531,6 +3572,9 @@ def main():
 
     print("[61/61] 补齐 MPV 配置/字幕选项 API")
     patch_mpv_options(root)
+
+    print("[62/62] 补齐 TV 5.8.1 UI 层依赖")
+    patch_tv_ui_apis(root)
 
     print("[58/58] 完成")
     print("\n补丁完成。")
