@@ -102,6 +102,17 @@ jobs:
           grep -q "setDiscMenuController" media/libraries/ui/src/main/java/androidx/media3/ui/PlayerView.java
           echo "补丁校验通过"
 
+      - name: Verify patch applied
+        run: |
+          set -uo pipefail
+          F=media/libraries/ui/src/main/java/androidx/media3/ui/danmaku/DanmakuPlayerViewController.java
+          echo "=== 文件存在? ==="
+          ls -l "$F" || { echo "::error::文件不存在"; exit 1; }
+          echo "=== post 方法? ==="
+          grep -n "post" "$F" || echo "!!! 源码里没有 post !!!"
+          echo "=== 行数 ==="
+          wc -l "$F"
+
       - name: Purge build outputs and cache
         run: |
           set -uo pipefail
