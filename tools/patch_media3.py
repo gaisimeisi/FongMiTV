@@ -1194,7 +1194,7 @@ public final class MpvConfigFileInspector {
 
   private final Path directory;
 
-  public MpvConfigFileInspector(Path directory) {
+  public MpvConfigFileInspector(Object directory) {
     this.directory = directory;
   }
 
@@ -1227,7 +1227,7 @@ public final class LibassFontConfig {
   private LibassFontConfig() {}
 
   /** Writes the font configuration to {@code target}. */
-  public static void write(File target, Path cacheDirectory, List<?> fontDirectories)
+  public static void write(File target, Object cacheDirectory, List<?> fontDirectories)
       throws IOException {
     if (target == null) return;
     StringBuilder sb = new StringBuilder();
@@ -1736,6 +1736,14 @@ public final class LibassFontFile {
     this.path = path;
     this.bold = bold;
     this.italic = italic;
+  }
+
+  /** Resolves the font family name for a font file. */
+  public static String getFamilyName(java.io.File file) {
+    String name = file == null ? null : file.getName();
+    if (name == null) return "";
+    int dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
   }
 
   /** Returns the font family name. */
