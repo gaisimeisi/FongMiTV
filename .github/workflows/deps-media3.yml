@@ -209,7 +209,13 @@ jobs:
         working-directory: self
         run: |
           mkdir -p app/libs
+          echo "=== out 目录 ==="
+          ls -l ../out/ | head -20
           cp ../out/*.aar app/libs/
+          echo "=== cp 后 app/libs 关键文件 ==="
+          ls -l app/libs/lib-ui-release.aar app/libs/lib-exoplayer-release.aar 2>&1
+          echo "=== git status ==="
+          git status --short | head -20
           git config user.name  "deps-bot"
           git config user.email "deps-bot@users.noreply.github.com"
           # -f 是因为 app/libs/.gitignore 里有 lib-*.aar 规则
