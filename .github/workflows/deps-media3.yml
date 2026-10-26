@@ -117,7 +117,10 @@ jobs:
         working-directory: media
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace --no-build-cache --rerun-tasks clean \
+          echo "--- 删除旧产物（clean 不清 buildout）---"
+          rm -rf libraries/*/build libraries/*/buildout
+          ls -d libraries/*/buildout 2>/dev/null | head -3 || echo "(buildout 已清空)"
+          ./gradlew --no-daemon --stacktrace --no-build-cache --rerun-tasks \
             -x lint -x test \
             :lib-common:assembleRelease \
             :lib-exoplayer:assembleRelease \
@@ -133,6 +136,12 @@ jobs:
             :lib-session:assembleRelease \
             :lib-mpvplayer:assembleRelease \
             :lib-ui-danmaku:assembleRelease
+
+      - name: Verify aar freshness
+        run: |
+          set -uo pipefail
+          echo "=== aar 时间戳 ==="
+          find media/libraries -path "*/outputs/aar/*.aar" -type f -printf "%TH:%TM:%TS %p\n" 2>/dev/null | sort | head -20
 
       - name: Collect aars
         run: |
