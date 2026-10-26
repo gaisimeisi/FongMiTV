@@ -3200,7 +3200,7 @@ def patch_tv_ui_apis(root):
         if "PARTIAL" not in t:
             anchor = "    /** Format not supported. */\n    UNSUPPORTED"
             if anchor in t:
-                t = t.replace(anchor, anchor + ",\n    /** Only partially decoded. */\n    PARTIAL,\n    /** Truncated because of a memory limit. */\n    TRUNCATED", 1)
+                t = t.replace(anchor, anchor + ",\n    /** Indexing failed. */\n    ERROR,\n    /** Only partially decoded. */\n    PARTIAL,\n    /** Truncated because of a memory limit. */\n    TRUNCATED", 1)
                 added.append("PARTIAL")
                 added.append("TRUNCATED")
         if added:
@@ -3219,13 +3219,44 @@ def patch_tv_ui_apis(root):
                 add = """
 
   /** Listener fired when the audio filter chain is applied (TV extension). */
-  public void setAudioFilterListener(Object listener) {}
+  public void setAudioFilterListener(java.util.function.Consumer<Object> listener) {}
 """
                 t = t[:idx] + add + t[idx:]
                 open(p2, "w", encoding="utf-8", newline="\n").write(t)
                 print("  ~ MpvPlayer + setAudioFilterListener")
         else:
             print("  = MpvPlayer.setAudioFilterListener 已有")
+
+
+def patch_tv_constants(root):
+
+    # 3) common/DecoderMode 加 SOFTWARE（TV 的 DecoderSettingPanel 用 common 那个）
+    cdm = f"{root}/libraries/common/src/main/java/androidx/media3/common/DecoderMode.java"
+    if os.path.exists(cdm):
+        t = open(cdm, encoding="utf-8").read()
+        if "SOFTWARE" not in t:
+            anchor = "  HARDWARE,"
+            if anchor in t:
+                t = t.replace(anchor, anchor + "\n\n  /** Pure software decoding. */\n  SOFTWARE,", 1)
+                open(cdm, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ common/DecoderMode + SOFTWARE")
+        else:
+            print("  = common/DecoderMode.SOFTWARE 已有")
+
+    # 4) Player.EVENT_DISC_MENU_STATE_CHANGED
+    pl = f"{root}/libraries/common/src/main/java/androidx/media3/common/Player.java"
+    if os.path.exists(pl):
+        t = open(pl, encoding="utf-8").read()
+        if "EVENT_DISC_MENU_STATE_CHANGED" not in t:
+            anchor = "  int EVENT_PLAYBACK_STATE_CHANGED ="
+            if anchor in t:
+                idx = t.find(anchor)
+                end = t.find(";", idx)
+                idx2 = t.find("\n", end)
+                add = "\n\n  /** Disc menu state changed (TV extension). */\n  int EVENT_DISC_MENU_STATE_CHANGED = 1 << 30;"
+                t = t[:idx2] + add + t[idx2:]
+                open(pl, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ Player + EVENT_DISC_MENU_STATE_CHANGED")
 
 
 def main():
@@ -3575,6 +3606,9 @@ def main():
 
     print("[62/62] 补齐 TV 5.8.1 UI 层依赖")
     patch_tv_ui_apis(root)
+
+    print("[63/63] 补齐 DecoderMode.SOFTWARE / EVENT_DISC_MENU_STATE_CHANGED")
+    patch_tv_constants(root)
 
     print("[58/58] 完成")
     print("\n补丁完成。")
