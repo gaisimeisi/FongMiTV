@@ -3080,6 +3080,141 @@ def patch_tv_aliases(root):
                 print("  ~ MpvAudioFilter.Builder + addDynamicNormalization")
 
 
+def patch_mpv_options(root):
+    """补齐 TV 版 MpvSubtitleOptions.Builder / MpvPlayerConfig.Builder / MpvPlayer 的链式 API。"""
+    mpv = f"{root}/libraries/mpvplayer/src/main/java/androidx/media3/mpvplayer"
+
+    # 1) MpvSubtitleOptions.Builder
+    p1 = f"{mpv}/MpvSubtitleOptions.java"
+    if os.path.exists(p1):
+        t = open(p1, encoding="utf-8").read()
+        if "setFontsDirectory" not in t:
+            anchor = "  public static final class Builder {"
+            add = anchor + """
+
+    public Builder setFontsDirectory(String directory) {
+      return this;
+    }
+
+    public Builder setFontFamily(String family) {
+      return this;
+    }
+
+    public Builder setPosition(double position) {
+      return this;
+    }
+
+    public Builder setVerticalOffset(double offset) {
+      return this;
+    }
+
+    public Builder setScale(double scale) {
+      return this;
+    }
+
+    public Builder setSecondarySubtitlePosition(double position) {
+      return this;
+    }
+
+    public Builder setSecondaryVerticalOffset(double offset) {
+      return this;
+    }
+
+    public Builder setSecondaryAssStyleOverride(boolean override) {
+      return this;
+    }
+
+    public Builder setCustomStyle(
+        int primaryColor, int outlineColor, double fontSize, boolean bold,
+        boolean italic, boolean borderStyle, int shadowColor) {
+      return this;
+    }
+
+    public Builder setSystemCaptionStyle() {
+      return this;
+    }
+
+    public Builder setDefaultStyle(
+        int foregroundColor, int backgroundColor, int edgeType, int edgeColor,
+        double edgeWidth, double shadowOffset) {
+      return this;
+    }"""
+            if anchor in t:
+                t = t.replace(anchor, add, 1)
+                open(p1, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ MpvSubtitleOptions.Builder + 12 个字幕选项方法")
+
+    # 2) MpvPlayerConfig.Builder
+    p2 = f"{mpv}/MpvPlayerConfig.java"
+    if os.path.exists(p2):
+        t = open(p2, encoding="utf-8").read()
+        if "setDataSourceFactory" not in t:
+            anchor = "  public static final class Builder {"
+            add = anchor + """
+
+    public Builder setDataSourceFactory(Object factory) {
+      return this;
+    }
+
+    public Builder setDefaultFontDirectories(java.io.File primary, java.io.File secondary) {
+      return this;
+    }
+
+    public Builder setCache(Object cache) {
+      return this;
+    }
+
+    public Builder setCacheWriteDataSinkFactory(Object factory) {
+      return this;
+    }
+
+    public Builder setPreferredTextLanguages(String... languages) {
+      return this;
+    }
+
+    public Builder setAudioPassthroughEnabled(boolean enabled) {
+      return this;
+    }
+
+    public Builder setVulkanEnabled(boolean enabled) {
+      return this;
+    }
+
+    public Builder setGpuNextEnabled(boolean enabled) {
+      return this;
+    }
+
+    public Builder addAll(Object other) {
+      return this;
+    }"""
+            if anchor in t:
+                t = t.replace(anchor, add, 1)
+                open(p2, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ MpvPlayerConfig.Builder + 9 个配置方法")
+
+    # 3) MpvPlayer.setSubtitleContentLoader / getVideoEffectsSupport
+    p3 = f"{mpv}/MpvPlayer.java"
+    if os.path.exists(p3):
+        t = open(p3, encoding="utf-8").read()
+        if "setSubtitleContentLoader" not in t:
+            # 找第一个 public 方法当作插入点
+            idx = t.find("\n  public ")
+            if idx > 0:
+                add = """
+
+  /** Installs the external subtitle content loader (TV extension). */
+  public void setSubtitleContentLoader(androidx.media3.mpvplayer.MpvSubtitleContentLoader loader) {}
+
+  /** Returns whether video effects are supported (TV extension). */
+  public int getVideoEffectsSupport() {
+    return VIDEO_EFFECTS_SUPPORTED;
+  }
+"""
+                t = t[:idx] + add + t[idx:]
+                open(p3, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ MpvPlayer + setSubtitleContentLoader / getVideoEffectsSupport")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("用法: python3 patch_media3.py <media3 仓库根目录>")
@@ -3421,6 +3556,9 @@ def main():
 
     print("[60/60] 补齐 TV 侧别名 API")
     patch_tv_aliases(root)
+
+    print("[61/61] 补齐 MPV 配置/字幕选项 API")
+    patch_mpv_options(root)
 
     print("[58/58] 完成")
     print("\n补丁完成。")
