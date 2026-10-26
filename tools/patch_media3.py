@@ -2369,7 +2369,7 @@ public final class SubtitleSelectionState {
 
   public SubtitleSelectionState(
       @Nullable TrackSelectionOverride primary, @Nullable TrackSelectionOverride secondary) {
-    this(primary, secondary, null, Collections.emptyList(), null);
+    this(primary, secondary, false, Collections.emptyList(), null);
   }
 
   public SubtitleSelectionState(
