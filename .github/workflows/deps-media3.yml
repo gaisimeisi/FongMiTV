@@ -174,11 +174,30 @@ jobs:
           # 统一加 media3- 前缀避免覆盖（TV 用 fileTree 引入，名字无所谓）
           find media/libraries -path "*/outputs/aar/*.aar" -type f | while read -r f; do
             base=$(basename "$f")
-            # mpvplayer / decoder-ffmpeg 由本仓库自己维护（含 unified native + 补丁），
-            # 从上游编出来的同名 aar 会与之重复，直接跳过。
+            # mpvplayer / decoder-ffmpeg：classes 用上游刚编的（含全部补丁），
+            # native 用本仓库 aar 里的（unified），合并成最终 aar。
             case "$base" in
               lib-mpvplayer-release.aar|lib-decoder-ffmpeg-release.aar)
-                echo "  跳过由本仓库维护的 $base"
+                SELF_AAR="self/app/libs/$base"
+                if [ ! -f "$SELF_AAR" ]; then
+                  echo "  ! 本仓库缺少 $base，直接采用上游产物"
+                  cp "$f" "out/$base"
+                  continue
+                fi
+                TMP=$(mktemp -d)
+                mkdir -p "$TMP/merged"
+                unzip -q -o "$f" -d "$TMP/merged"
+                unzip -q -o "$SELF_AAR" 'jni/*' -d "$TMP/native" 2>/dev/null || true
+                if [ -d "$TMP/native/jni" ]; then
+                  rm -rf "$TMP/merged/jni"
+                  cp -r "$TMP/native/jni" "$TMP/merged/jni"
+                  NATIVE_FILES=$(find "$TMP/native/jni" -type f | wc -l)
+                  echo "  = $base: 上游 classes + 本仓库 $NATIVE_FILES 个 native 文件"
+                else
+                  echo "  ! $base: 本仓库 aar 里没有 jni/，只用上游产物"
+                fi
+                ( cd "$TMP/merged" && zip -qr "$OLDPWD/out/$base" . )
+                rm -rf "$TMP"
                 continue ;;
             esac
             cp "$f" "out/$base"
