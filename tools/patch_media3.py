@@ -930,6 +930,9 @@ VIDEO_TRANSFORM = '''package androidx.media3.common;
 /** Scale and pan factors applied to the video surface. */
 public final class VideoTransform {
 
+  /** Upper bound for the user-facing video scale factor. */
+  public static final float MAX_SCALE = 4f;
+
   public final float scaleX;
   public final float scaleY;
   public final float panX;
@@ -1204,7 +1207,7 @@ public final class MpvConfigFileInspector {
   }
 
   /** Returns the option names that would take effect for the given config content. */
-  public Set<String> getEffectiveOptionNames(String content) {
+  public Set<String> getEffectiveOptionNames(CharSequence content) {
     return Collections.emptySet();
   }
 
@@ -3009,6 +3012,63 @@ def patch_extra_apis(root):
                 print("  ~ PlayerSeekView + DurationSupplier")
 
 
+def patch_tv_aliases(root):
+    # 7) 补齐 TV 用到、media3 里名字不同的 API（别名）
+    ext_fac = f"{root}/libraries/extractor/src/main/java/androidx/media3/extractor/DefaultExtractorsFactory.java"
+    if os.path.exists(ext_fac):
+        t = open(ext_fac, encoding="utf-8").read()
+        if "setMatroskaExtractorFlagsForHttpSources" not in t:
+            anchor = "  public synchronized DefaultExtractorsFactory setMatroskaExtractorFlags("
+            if anchor in t:
+                add = """  /** Alias used by the TV app: same as {@link #setMatroskaExtractorFlags(int)}. */
+  public synchronized DefaultExtractorsFactory setMatroskaExtractorFlagsForHttpSources(int flags) {
+    return setMatroskaExtractorFlags(flags);
+  }
+
+"""
+                t = t.replace(anchor, add + anchor, 1)
+                print("  ~ DefaultExtractorsFactory + setMatroskaExtractorFlagsForHttpSources")
+        if "setMp4ClearKeys" not in t:
+            anchor2 = "  public synchronized DefaultExtractorsFactory setMp4ExtractorFlags("
+            if anchor2 in t:
+                add2 = """  /** TV app passes clear keys for fragmented MP4; media3 handles them at the source level. */
+  public synchronized DefaultExtractorsFactory setMp4ClearKeys(Object clearKeys) {
+    return this;
+  }
+
+"""
+                t = t.replace(anchor2, add2 + anchor2, 1)
+                print("  ~ DefaultExtractorsFactory + setMp4ClearKeys")
+        open(ext_fac, "w", encoding="utf-8", newline="\n").write(t)
+
+    mkv = f"{root}/libraries/extractor/src/main/java/androidx/media3/extractor/mkv/MatroskaExtractor.java"
+    if os.path.exists(mkv):
+        t = open(mkv, encoding="utf-8").read()
+        if "FLAG_DEFER_SEEK_FOR_CUES" not in t:
+            anchor = "  public static final int FLAG_DISABLE_SEEK_FOR_CUES = 1;"
+            if anchor in t:
+                add = anchor + "\n\n  /** Alias used by the TV app. */\n  public static final int FLAG_DEFER_SEEK_FOR_CUES = FLAG_DISABLE_SEEK_FOR_CUES;"
+                t = t.replace(anchor, add, 1)
+                open(mkv, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ MatroskaExtractor + FLAG_DEFER_SEEK_FOR_CUES")
+
+    maf = f"{root}/libraries/mpvplayer/src/main/java/androidx/media3/mpvplayer/audio/MpvAudioFilter.java"
+    if os.path.exists(maf):
+        t = open(maf, encoding="utf-8").read()
+        if "addDynamicNormalization" not in t:
+            anchor = "    public Builder addLoudnessNormalization("
+            if anchor in t:
+                add = """    /** Alias used by the TV app: dynamic normalisation == loudness normalisation. */
+    public Builder addDynamicNormalization(String id, double gainDb, double rangeDb) {
+      return addLoudnessNormalization(id, gainDb, rangeDb);
+    }
+
+""" + anchor
+                t = t.replace(anchor, add, 1)
+                open(maf, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ MpvAudioFilter.Builder + addDynamicNormalization")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("用法: python3 patch_media3.py <media3 仓库根目录>")
@@ -3347,6 +3407,9 @@ def main():
     patch_mpvlib(root)
     print("[59/59] 补齐 extra APIs（ExoPlayer subtitleOffsets / prepareSource / renderers / mpv loader / ui）")
     patch_extra_apis(root)
+
+    print("[60/60] 补齐 TV 侧别名 API")
+    patch_tv_aliases(root)
 
     print("[58/58] 完成")
     print("\n补丁完成。")
