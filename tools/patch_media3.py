@@ -2358,8 +2358,8 @@ public final class SubtitleSelectionState {
   /** Currently active secondary track. */
   @Nullable public final TrackSelectionOverride activeSecondarySelection;
 
-  /** The secondary track that was promoted to primary. */
-  @Nullable public final TrackSelectionOverride secondaryPromotedToPrimary;
+  /** Whether a secondary track was promoted to primary. */
+  public final boolean secondaryPromotedToPrimary;
 
   /** Secondary tracks that are candidates for promotion. */
   public final List<TrackSelectionOverride> secondaryCandidates;
@@ -2375,7 +2375,7 @@ public final class SubtitleSelectionState {
   public SubtitleSelectionState(
       @Nullable TrackSelectionOverride primarySelection,
       @Nullable TrackSelectionOverride activeSecondarySelection,
-      @Nullable TrackSelectionOverride secondaryPromotedToPrimary,
+      boolean secondaryPromotedToPrimary,
       List<TrackSelectionOverride> secondaryCandidates,
       @Nullable TrackSelectionOverride requestedSecondarySelection) {
     this.primarySelection = primarySelection;
@@ -3266,6 +3266,27 @@ def patch_tv_constants(root):
                 print("  ~ Player + EVENT_DISC_MENU_STATE_CHANGED")
 
 
+def patch_audio_mode(root):
+    # 5) AudioChannelMode.isAvailable(int) 单参重载
+    acm = f"{root}/libraries/common/src/main/java/androidx/media3/common/audio/AudioChannelMode.java"
+    if os.path.exists(acm):
+        t = open(acm, encoding="utf-8").read()
+        if "isAvailable(int mode)" not in t:
+            anchor = "  public static boolean isAvailable(int mode, int channelCount) {"
+            if anchor in t:
+                add = """  /** TV extension: availability without knowing the channel count. */
+  public static boolean isAvailable(int mode) {
+    return mode != AUTO;
+  }
+
+""" + anchor
+                t = t.replace(anchor, add, 1)
+                open(acm, "w", encoding="utf-8", newline="\n").write(t)
+                print("  ~ AudioChannelMode + isAvailable(int)")
+        else:
+            print("  = AudioChannelMode.isAvailable(int) 已有")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("用法: python3 patch_media3.py <media3 仓库根目录>")
@@ -3616,6 +3637,9 @@ def main():
 
     print("[63/63] 补齐 DecoderMode.SOFTWARE / EVENT_DISC_MENU_STATE_CHANGED")
     patch_tv_constants(root)
+
+    print("[64/64] AudioChannelMode.isAvailable(int)")
+    patch_audio_mode(root)
 
     print("[58/58] 完成")
     print("\n补丁完成。")
