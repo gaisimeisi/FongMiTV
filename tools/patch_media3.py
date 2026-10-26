@@ -3164,27 +3164,27 @@ def patch_mpv_options(root):
                 open(p2, "w", encoding="utf-8", newline="\n").write(t)
                 print("  ~ MpvPlayerConfig.Builder + 9 个配置方法")
 
-    # 3) MpvPlayer.setSubtitleContentLoader / getVideoEffectsSupport
+    # 3) MpvPlayer.setSubtitleContentLoader —— 逐个检查（getVideoEffectsSupport media3 已有）
     p3 = f"{mpv}/MpvPlayer.java"
     if os.path.exists(p3):
         t = open(p3, encoding="utf-8").read()
-        if "setSubtitleContentLoader" not in t:
-            # 找第一个 public 方法当作插入点
+        added = []
+        if "setSubtitleContentLoader(" not in t:
             idx = t.find("\n  public ")
             if idx > 0:
                 add = """
 
   /** Installs the external subtitle content loader (TV extension). */
   public void setSubtitleContentLoader(androidx.media3.mpvplayer.MpvSubtitleContentLoader loader) {}
-
-  /** Returns whether video effects are supported (TV extension). */
-  public int getVideoEffectsSupport() {
-    return VIDEO_EFFECTS_SUPPORTED;
-  }
 """
                 t = t[:idx] + add + t[idx:]
-                open(p3, "w", encoding="utf-8", newline="\n").write(t)
-                print("  ~ MpvPlayer + setSubtitleContentLoader / getVideoEffectsSupport")
+                added.append("setSubtitleContentLoader")
+        if added:
+            open(p3, "w", encoding="utf-8", newline="\n").write(t)
+            print(f"  ~ MpvPlayer + {', '.join(added)}")
+        else:
+            print("  = MpvPlayer 无需补")
+
 
 
 def main():
