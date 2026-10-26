@@ -148,6 +148,19 @@ jobs:
             :lib-mpvplayer:assembleRelease \
             :lib-ui-danmaku:assembleRelease
 
+      - name: Inspect built aar
+        run: |
+          set -uo pipefail
+          A=media/libraries/ui/buildout/outputs/aar/lib-ui-release.aar
+          echo "=== aar 大小 / 时间 ==="
+          ls -l "$A"
+          rm -rf /tmp/insp && mkdir -p /tmp/insp
+          cd /tmp/insp && unzip -o "$GITHUB_WORKSPACE/$A" classes.jar > /dev/null 2>&1
+          echo "=== class 里的 post ==="
+          javap -classpath classes.jar androidx.media3.ui.danmaku.DanmakuPlayerViewController 2>&1 | head -20
+          echo "=== post 命中数 ==="
+          javap -classpath classes.jar androidx.media3.ui.danmaku.DanmakuPlayerViewController 2>&1 | grep -c "post" || echo "0"
+
       - name: Verify aar freshness
         run: |
           set -uo pipefail
