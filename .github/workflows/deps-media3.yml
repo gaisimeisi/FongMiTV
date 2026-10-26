@@ -205,7 +205,8 @@ jobs:
           retention-days: 90
 
       - name: Commit aars into app/libs
-        if: ${{ inputs.commit != false }}
+        # 注意：不能用 `if: inputs.commit != false`，push/schedule 触发时 inputs 为空，
+        # GitHub 会把 null 和 false 都当 0，比较结果相等 => 条件为 false => 整步被跳过。
         working-directory: self
         run: |
           mkdir -p app/libs
