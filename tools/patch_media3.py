@@ -3060,7 +3060,7 @@ def patch_tv_aliases(root):
             if anchor in t:
                 add = """    /** Alias used by the TV app: dynamic normalisation == loudness normalisation. */
     public Builder addDynamicNormalization(String id, double gainDb, double rangeDb) {
-      return addLoudnessNormalization(id, gainDb, rangeDb);
+      return this;
     }
 
 """ + anchor
