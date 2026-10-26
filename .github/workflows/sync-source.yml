@@ -30,6 +30,8 @@ on:
 
 permissions:
   contents: write
+  # 触发 deps-media3 需要 actions: write（私库默认 read，缺了会 403）
+  actions: write
 
 jobs:
   sync:
