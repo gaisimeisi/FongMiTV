@@ -1208,7 +1208,7 @@ public final class MpvConfigFileInspector {
     return Collections.emptySet();
   }
 
-  public Path getDirectory() {
+  public Object getDirectory() {
     return directory;
   }
 }
