@@ -3219,7 +3219,8 @@ def patch_tv_ui_apis(root):
                 add = """
 
   /** Listener fired when the audio filter chain is applied (TV extension). */
-  public void setAudioFilterListener(java.util.function.Consumer<Object> listener) {}
+  /** Listener fired when the audio filter chain is applied (TV extension). */
+  public void setAudioFilterListener(java.util.function.Consumer<Boolean> listener) {}
 """
                 t = t[:idx] + add + t[idx:]
                 open(p2, "w", encoding="utf-8", newline="\n").write(t)
