@@ -1914,6 +1914,17 @@ public final class SubtitleTranscriptSession {
 
   public void setPreloadMediaItem(@Nullable MediaItem item) {}
 
+  /** Enables / disables pulling transcript content for the current item. */
+  public void setContentEnabled(boolean enabled) {}
+
+  /** Whether the given format's transcript can be retried. */
+  public boolean canRetryContent(Format format) {
+    return false;
+  }
+
+  /** Retries loading transcript content for the given format. */
+  public void retryContent(Format format) {}
+
   /** Returns (creating if needed) the transcript for the given item. */
   public SubtitleTranscript forMediaItem(MediaItem item) {
     return transcripts.computeIfAbsent(item, SubtitleTranscript::new);
