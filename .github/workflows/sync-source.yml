@@ -140,7 +140,9 @@ jobs:
           fi
           git add -A
           UPVER=$(grep -oE 'versionName[[:space:]]*"[0-9.]+"' app/build.gradle | head -1 | grep -oE '[0-9.]+' || echo unknown)
-          git commit -m "chore(sync): merge upstream FongMi/TV $UPVER"
+          # [skip ci]：源码合并本身不触发 app（此时 aro 还是旧的会编失败），
+          # 真正的编译由下面触发的 deps-media3 提交 aar 后引发
+          git commit -m "chore(sync): merge upstream FongMi/TV $UPVER [skip ci]"
           pushed=0
           for attempt in 1 2 3 4 5; do
             if git push; then pushed=1; break; fi
