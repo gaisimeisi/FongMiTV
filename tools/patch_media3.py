@@ -1192,7 +1192,7 @@ import java.util.Set;
 /** Reads mpv.conf style configuration files. */
 public final class MpvConfigFileInspector {
 
-  private final Path directory;
+  private final Object directory;
 
   public MpvConfigFileInspector(Object directory) {
     this.directory = directory;
