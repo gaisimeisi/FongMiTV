@@ -5,6 +5,7 @@ name: sync-source
 #
 # 保留清单（不会被上游覆盖）：
 #   app/libs/                         自编 media3 aar
+#   app/src/leanback/                 TV 版全部源码（阶段：改造成影视仓风格，不再跟随上游）
 #   tools/patch_media3.py             media3 补丁脚本
 #   .github/                          workflows
 #   app/build.gradle                  仅保留 runtimeCatalog 一行注入，其余取上游
@@ -83,6 +84,7 @@ jobs:
             --exclude='.github/' \
             --exclude='app/libs/' \
             --exclude='app/build.gradle' \
+            --exclude='app/src/leanback/' \
             --exclude='app/src/main/java/com/fongmi/android/tv/utils/Github.java' \
             --exclude='catvod/src/main/java/com/github/catvod/utils/RuntimeModule.java' \
             --exclude='catvod/src/main/java/com/github/catvod/net/OkHttp.java' \
