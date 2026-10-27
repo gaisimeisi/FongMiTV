@@ -70,4 +70,9 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
         item.delete();
         recreate();
     }
+
+    @Override
+    public boolean onLongClick() {
+        return false;
+    }
 }
