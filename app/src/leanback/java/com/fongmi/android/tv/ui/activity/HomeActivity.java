@@ -30,6 +30,7 @@ import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.api.config.WallConfig;
 import com.fongmi.android.tv.api.node.NodeRuntime;
 import com.fongmi.android.tv.bean.Cache;
+import com.fongmi.android.tv.bean.Class;
 import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.bean.Func;
 import com.fongmi.android.tv.bean.History;
@@ -146,7 +147,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         setRecyclerView();
         setViewModel();
         setAdapter();
-        setTabBar();
         checkPermission();
     }
 
@@ -199,7 +199,10 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void onResult(Result result) {
         mAdapter.remove("progress");
-        addVideo(mResult = result);
+        mResult = result;
+        // 首次拿到数据后才能生成 Tab（分类名来自站点返回）
+        if (mBinding.tabBar.getChildCount() == 0) setTabBar();
+        addVideo(result);
         Cache.clear().put(result);
     }
 
@@ -339,32 +342,39 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void setTabBar() {
-        // 影视仓风格：顶部胶囊分类 Tab
+        // 影视仓风格：主页 + 站点返回的真实分类（电影/连续剧/综艺…）
         mBinding.tabBar.removeAllViews();
-        String[] tabs = {"主页", "电影", "连续剧", "综艺", "动漫", "短剧"};
-        for (int i = 0; i < tabs.length; i++) {
+        List<String> names = new ArrayList<>();
+        names.add("主页");
+        for (Class type : mResult.getTypes()) names.add(type.getTypeName());
+        for (int i = 0; i < names.size(); i++) {
             android.widget.TextView tab = (android.widget.TextView) getLayoutInflater().inflate(R.layout.item_tab, mBinding.tabBar, false);
-            tab.setText(tabs[i]);
+            tab.setText(names.get(i));
             tab.setSelected(i == 0);
             final int index = i;
             tab.setOnClickListener(v -> selectTab(index));
-            tab.setOnFocusChangeListener((v, hasFocus) -> {
-                if (hasFocus) ((android.widget.TextView) v).setSelected(v.isSelected());
-            });
             mBinding.tabBar.addView(tab);
         }
     }
 
     private void selectTab(int index) {
         for (int i = 0; i < mBinding.tabBar.getChildCount(); i++) {
-            View child = mBinding.tabBar.getChildAt(i);
-            child.setSelected(i == index);
+            mBinding.tabBar.getChildAt(i).setSelected(i == index);
         }
+        // 影视仓行为：切到分类后收起图标行与站点名，只留 Tab + 海报墙
+        int chrome = index == 0 ? View.VISIBLE : View.GONE;
+        mBinding.funcScroll.setVisibility(chrome);
+        mBinding.toolbar.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
+
+        mAdapter.clear();
+        mAdapter.add("progress");
         if (index == 0) {
-            getVideo();
+            mViewModel.homeContent();
         } else {
-            // 其他分类暂时交由站点分类页处理（后续接 categories）
-            onItemClick(Func.create(R.string.home_vod));
+            List<Class> types = mResult.getTypes();
+            if (index - 1 >= types.size()) return;
+            Class type = types.get(index - 1);
+            mViewModel.categoryContent(getHome().getKey(), type.getTypeId(), "1", true, new java.util.HashMap<>());
         }
     }
 
