@@ -91,7 +91,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private ActivityHomeBinding mBinding;
     private ArrayObjectAdapter mHistoryAdapter;
-    private ArrayObjectAdapter mFuncAdapter;
     private ArrayObjectAdapter mAdapter;
     private HistoryPresenter mPresenter;
     private VodPresenter mVodPresenter;
@@ -141,12 +140,13 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     protected void initView(Bundle savedInstanceState) {
         if (savedInstanceState == null || !savedInstanceState.getBoolean(STATE_ACTION_HANDLED)) pendingAction = getIntent();
         mResult = Result.empty();
-        mClock = Clock.create(mBinding.clock);
+        mClock = Clock.create(mBinding.clock).format("yyyy年MM月dd日 HH:mm:ss");
         mBinding.progressLayout.showProgress();
         Updater.get().start(this, false);
         setRecyclerView();
         setViewModel();
         setAdapter();
+        setTabBar();
         checkPermission();
     }
 
@@ -205,9 +205,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void setAdapter() {
         mHistoryAdapter = new ArrayObjectAdapter(mPresenter = new HistoryPresenter(this));
-        mAdapter.add(new ListRow(mFuncAdapter = new ArrayObjectAdapter(new FuncPresenter(this))));
-        mAdapter.add(R.string.home_history);
-        mAdapter.add(R.string.home_recommend);
+        // 影视仓风格：功能入口移到顶部图标栏，列表区不再有行标题
     }
 
     private void checkPermission() {
@@ -319,14 +317,55 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void setFunc() {
+        // 影视仓风格：9 个横排图标（图标在左、文字在右、无背景块）
+        mBinding.funcBar.removeAllViews();
         List<Func> items = new ArrayList<>();
-        items.add(Func.create(R.string.home_vod));
+        items.add(Func.create(R.string.home_history));
         if (LiveConfig.hasUrl()) items.add(Func.create(R.string.home_live));
         items.add(Func.create(R.string.home_search));
+        items.add(Func.create(R.string.home_config));
+        items.add(Func.create(R.string.home_line));
+        items.add(Func.create(R.string.home_local));
         items.add(Func.create(R.string.home_keep));
         items.add(Func.create(R.string.home_push));
         items.add(Func.create(R.string.home_setting));
-        mFuncAdapter.setItems(items, new BaseDiffCallback<Func>());
+        for (Func item : items) {
+            View view = getLayoutInflater().inflate(R.layout.adapter_func, mBinding.funcBar, false);
+            ((android.widget.ImageView) view.findViewById(R.id.icon)).setImageResource(item.getDrawable());
+            ((android.widget.TextView) view.findViewById(R.id.text)).setText(item.getText());
+            view.setOnClickListener(v -> onItemClick(item));
+            mBinding.funcBar.addView(view);
+        }
+    }
+
+    private void setTabBar() {
+        // 影视仓风格：顶部胶囊分类 Tab
+        mBinding.tabBar.removeAllViews();
+        String[] tabs = {"主页", "电影", "连续剧", "综艺", "动漫", "短剧"};
+        for (int i = 0; i < tabs.length; i++) {
+            android.widget.TextView tab = (android.widget.TextView) getLayoutInflater().inflate(R.layout.item_tab, mBinding.tabBar, false);
+            tab.setText(tabs[i]);
+            tab.setSelected(i == 0);
+            final int index = i;
+            tab.setOnClickListener(v -> selectTab(index));
+            tab.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) ((android.widget.TextView) v).setSelected(v.isSelected());
+            });
+            mBinding.tabBar.addView(tab);
+        }
+    }
+
+    private void selectTab(int index) {
+        for (int i = 0; i < mBinding.tabBar.getChildCount(); i++) {
+            View child = mBinding.tabBar.getChildAt(i);
+            child.setSelected(i == index);
+        }
+        if (index == 0) {
+            getVideo();
+        } else {
+            // 其他分类暂时交由站点分类页处理（后续接 categories）
+            onItemClick(Func.create(R.string.home_vod));
+        }
     }
 
     private void getHistory() {

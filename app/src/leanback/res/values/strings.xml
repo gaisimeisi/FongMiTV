@@ -6,6 +6,9 @@
     <string name="home_search">Search</string>
     <string name="home_keep">Keep</string>
     <string name="home_push">Connect</string>
+    <string name="home_config">Config</string>
+    <string name="home_line">Lines</string>
+    <string name="home_local">Local</string>
     <string name="home_setting">Setting</string>
     <string name="home_history">History</string>
     <string name="home_recommend">Recommend</string>
