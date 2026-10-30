@@ -44,7 +44,10 @@ def read_remote(api, net):
 
 
 def encode_json(content):
-    return json.dumps(sync_result(content), ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    content = sync_result(content)
+    if not isinstance(content, (dict, list)):
+        raise TypeError("Spider data must be a dict or list")
+    return json.dumps(content, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
 def sync_result(value):
@@ -64,9 +67,7 @@ def boolean_result(value):
 
 def init(ru, extend):
     try:
-        runtime = getattr(ru, "runtime", None)
-        if runtime is not None:
-            runtime.prepare(ru)
+        ru.runtime.prepare(ru)
         sync_result(ru.init(extend))
     except BaseException:
         release(ru)
@@ -118,7 +119,13 @@ def liveContent(ru, url):
 
 
 def proxy(ru, params):
-    return sync_result(ru.proxy(json.loads(params)))
+    value = sync_result(ru.proxy(json.loads(params)))
+    if isinstance(value, (list, tuple)) and len(value) > 2 and isinstance(value[2], (bytes, bytearray)):
+        from java import jarray, jbyte
+
+        value = list(value)
+        value[2] = jarray(jbyte)(value[2])
+    return value
 
 
 def action(ru, action):
@@ -142,9 +149,7 @@ def destroy(ru):
 
 def release(ru):
     close_dialog(ru)
-    runtime = getattr(ru, "runtime", None)
-    if runtime is not None:
-        runtime.close()
+    ru.runtime.close()
 
 
 def close_dialog(ru):

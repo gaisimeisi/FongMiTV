@@ -228,10 +228,7 @@ class NetAdapter:
         if not callable(loader):
             raise TypeError("cached requires a callable loader")
         options = json.dumps(options)
-        value = self._native.cachedValue(key, options)
-        if value is None:
-            value = self._native.cached(key, options, _loader_class()(loader))
-        return value
+        return self._native.cached(key, options, _loader_class()(loader))
 
     def clearCache(self, key=None):
         self._native.clearCache(key)
