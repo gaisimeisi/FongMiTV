@@ -3287,6 +3287,19 @@ def patch_audio_mode(root):
             print("  = AudioChannelMode.isAvailable(int) 已有")
 
 
+def patch_track_selection_util(root):
+    """TV 5.8.5+ 新增 androidx.media3.common.util.TrackSelectionUtil（音轨循环/选择/重置）。"""
+    target = f"{root}/libraries/common/src/main/java/androidx/media3/common/util/TrackSelectionUtil.java"
+    if os.path.exists(target):
+        print("  = TrackSelectionUtil 已存在")
+        return
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    content = 'package androidx.media3.common.util;\n\nimport androidx.annotation.Nullable;\nimport androidx.media3.common.Player;\nimport androidx.media3.common.TrackGroup;\nimport androidx.media3.common.TrackSelectionOverride;\nimport androidx.media3.common.TrackSelectionParameters;\nimport androidx.media3.common.Tracks;\n\nimport java.util.ArrayList;\nimport java.util.List;\n\n/**\n * Helpers for switching tracks via {@link Player#setTrackSelectionParameters}.\n *\n * <p>TV 侧扩展：{@code ExoCommand} 依赖它实现音轨的循环 / 指定 / 重置 / 禁用。\n */\npublic final class TrackSelectionUtil {\n\n  private TrackSelectionUtil() {}\n\n  /** 选中指定 id 的轨道。 */\n  public static boolean selectTrack(Player player, int trackType, String trackId) {\n    for (Tracks.Group group : player.getCurrentTracks().getGroups()) {\n      if (group.getType() != trackType) continue;\n      for (int i = 0; i < group.length; i++) {\n        if (trackId.equals(group.getTrackFormat(i).id)) {\n          applyOverride(player, group.getMediaTrackGroup(), i);\n          return true;\n        }\n      }\n    }\n    return false;\n  }\n\n  /** 恢复该类型的自动选择。 */\n  public static boolean resetTrackSelection(Player player, int trackType) {\n    player.setTrackSelectionParameters(\n        player.getTrackSelectionParameters().buildUpon()\n            .clearOverridesOfType(trackType)\n            .setTrackTypeDisabled(trackType, false)\n            .build());\n    return true;\n  }\n\n  /** 启用 / 禁用某一类轨道。 */\n  public static boolean setTrackTypeDisabled(Player player, int trackType, boolean disabled) {\n    player.setTrackSelectionParameters(\n        player.getTrackSelectionParameters().buildUpon()\n            .setTrackTypeDisabled(trackType, disabled)\n            .build());\n    return true;\n  }\n\n  /** 在全部同类轨道里循环切换。 */\n  public static boolean cycleTrack(\n      Player player, int trackType, boolean reverse, boolean includeDisabled) {\n    List<TrackRef> refs = collect(player, trackType, null);\n    if (refs.isEmpty()) return false;\n    return cycle(player, refs, reverse);\n  }\n\n  /** 在指定的轨道 id 列表里循环切换。 */\n  public static boolean cycleTrack(\n      Player player,\n      int trackType,\n      List<String> trackIds,\n      boolean reverse,\n      boolean includeDisabled) {\n    List<TrackRef> refs = collect(player, trackType, trackIds);\n    if (refs.isEmpty()) return false;\n    return cycle(player, refs, reverse);\n  }\n\n  private static boolean cycle(Player player, List<TrackRef> refs, boolean reverse) {\n    int current = -1;\n    for (int i = 0; i < refs.size(); i++) {\n      if (refs.get(i).selected) {\n        current = i;\n        break;\n      }\n    }\n    int size = refs.size();\n    int next = current < 0 ? 0 : (current + (reverse ? -1 : 1) + size) % size;\n    TrackRef target = refs.get(next);\n    applyOverride(player, target.group, target.index);\n    return true;\n  }\n\n  private static void applyOverride(Player player, TrackGroup group, int index) {\n    player.setTrackSelectionParameters(\n        player.getTrackSelectionParameters().buildUpon()\n            .setOverrideForType(new TrackSelectionOverride(group, index))\n            .build());\n  }\n\n  private static List<TrackRef> collect(\n      Player player, int trackType, @Nullable List<String> trackIds) {\n    List<TrackRef> refs = new ArrayList<>();\n    for (Tracks.Group group : player.getCurrentTracks().getGroups()) {\n      if (group.getType() != trackType) continue;\n      for (int i = 0; i < group.length; i++) {\n        String id = group.getTrackFormat(i).id;\n        if (trackIds != null && !trackIds.contains(id)) continue;\n        refs.add(new TrackRef(group.getMediaTrackGroup(), i, group.isTrackSelected(i)));\n      }\n    }\n    return refs;\n  }\n\n  private static final class TrackRef {\n    final TrackGroup group;\n    final int index;\n    final boolean selected;\n\n    TrackRef(TrackGroup group, int index, boolean selected) {\n      this.group = group;\n      this.index = index;\n      this.selected = selected;\n    }\n  }\n}\n'
+    with open(target, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print("  ~ 新增 TrackSelectionUtil.java")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("用法: python3 patch_media3.py <media3 仓库根目录>")
@@ -3640,6 +3653,9 @@ def main():
 
     print("[64/64] AudioChannelMode.isAvailable(int)")
     patch_audio_mode(root)
+
+    print("[65/65] 补 TrackSelectionUtil（TV 5.8.5+）")
+    patch_track_selection_util(root)
 
     print("[58/58] 完成")
     print("\n补丁完成。")
