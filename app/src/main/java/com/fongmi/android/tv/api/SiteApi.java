@@ -110,19 +110,6 @@ public class SiteApi {
         return result;
     }
 
-    /**
-     * 单独拉分类列表（TVBox 标准 {@code ?ac=list}）。
-     * 有些站点的 homeContent 不返回 class，但 ac=list 会返回。
-     */
-    @NonNull
-    public static Result categoryList(@NonNull Site site) throws Exception {
-        ArrayMap<String, String> params = new ArrayMap<>();
-        params.put("ac", "list");
-        String json = call(site, params);
-        SpiderDebug.log("cateList", json);
-        return Result.fromJson(json);
-    }
-
     @NonNull
     public static Result categoryContent(@NonNull String key, @NonNull String tid, @NonNull String page, boolean filter, @NonNull HashMap<String, String> extend) throws Exception {
         SpiderDebug.log("category", "key=%s,tid=%s,page=%s,filter=%s,extend=%s", key, tid, page, filter, extend);

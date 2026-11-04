@@ -88,24 +88,8 @@ class VodFallbackPolicy {
     }
 
     private List<Site> getSearchableSites() {
-        // 原站点必须排最前：换源时优先用当前站点，实在不行才轮到其它站源。
-        // 之前直接按配置顺序塞，导致自动换源时经常跳到完全不相干的站点。
-        String homeKey = "";
-        try {
-            Site home = VodConfig.get().getHome();
-            if (home != null) homeKey = home.getKey();
-        } catch (Throwable ignored) {
-        }
-
         List<Site> sites = new ArrayList<>();
-        if (!homeKey.isEmpty()) {
-            for (Site site : VodConfig.get().getSites()) {
-                if (homeKey.equals(site.getKey()) && isPass(site)) sites.add(site);
-            }
-        }
-        for (Site site : VodConfig.get().getSites()) {
-            if (!homeKey.equals(site.getKey()) && isPass(site)) sites.add(site);
-        }
+        for (Site site : VodConfig.get().getSites()) if (isPass(site)) sites.add(site);
         return sites;
     }
 
@@ -115,9 +99,7 @@ class VodFallbackPolicy {
     }
 
     private boolean mismatch(Vod item) {
-        // 原来这里还有 `if (host.getVodId().equals(item.getId())) return true;`，
-        // 会把「当前正在播的这一条」排除掉；而原站点往往只有这一个片源，
-        // 结果就是原站点永远选不到，直接跳到别家。是否重复由 addFailedId 兜底，不会死循环。
+        if (host.getVodId().equals(item.getId())) return true;
         if (state.hasFailedId(item.getId())) return true;
         if (state.isAutoFallback()) return !item.getName().equals(state.getSearchKeyword());
         return !item.getName().contains(state.getSearchKeyword());
