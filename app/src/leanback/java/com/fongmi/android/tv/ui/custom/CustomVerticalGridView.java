@@ -96,13 +96,18 @@ public class CustomVerticalGridView extends VerticalGridView {
         switch (ev.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 touching = true;
-                // 触摸期间不参与焦点，从源头断掉「焦点跟随滚动」把列表拉回顶部
+                // 双保险：
+                // 1) 自己退出触摸焦点
+                // 2) 禁止子 View 抢焦点 —— 子 View 一抢，父容器就会滚动去「让焦点可见」，
+                //    这正是列表被拉回第一行的直接原因
                 setFocusableInTouchMode(false);
+                setDescendantFocusability(FOCUS_BLOCK_DESCENDANTS);
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 touching = false;
                 setFocusableInTouchMode(true);
+                setDescendantFocusability(FOCUS_AFTER_DESCENDANTS);
                 // 手指抬起后，把「选中位置」同步到当前第一个可见项。
                 // 否则选中位置还停在 0，一旦重布局/按方向键就会跳回顶部（影视仓 TvRecyclerView 的做法）
                 post(this::syncSelectedToVisible);
