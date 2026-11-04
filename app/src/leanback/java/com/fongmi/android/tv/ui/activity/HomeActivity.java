@@ -95,6 +95,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private ArrayObjectAdapter mHistoryAdapter;
     private ArrayObjectAdapter mAdapter;
     private HistoryPresenter mPresenter;
+    /** 首页返回的分类，切到分类页时 mResult 会被覆盖，必须单独存 */
+    private List<Class> homeTypes = new ArrayList<>();
     private VodPresenter mVodPresenter;
     private SiteViewModel mViewModel;
     private Intent pendingAction;
@@ -201,6 +203,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private void onResult(Result result) {
         mAdapter.remove("progress");
         mResult = result;
+        if (!result.getTypes().isEmpty()) homeTypes = result.getTypes();
         // 每次有数据都重建 Tab：冷启动第一次 onResult 时 types 可能还是 0，
         // 后面补到 types 时必须能刷出来（setTabBar 内部会 removeAllViews，幂等）
         setTabBar();
@@ -354,7 +357,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 Result r = SiteApi.categoryList(getHome());
                 android.util.Log.d("TabBar", "ac=list -> types=" + r.getTypes().size());
                 if (!r.getTypes().isEmpty()) App.post(() -> {
-                    mResult.setTypes(r.getTypes());
+                    homeTypes = r.getTypes();
+                    mResult.setTypes(homeTypes);
                     setTabBar();
                 });
             } catch (Throwable e) {
@@ -370,7 +374,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mBinding.tabBar.removeAllViews();
         List<String> names = new ArrayList<>();
         names.add("主页");
-        List<Class> types = mResult.getTypes();
+        List<Class> types = homeTypes.isEmpty() ? mResult.getTypes() : homeTypes;
         List<String> cates = getHome().getCategories();
         android.util.Log.d("TabBar", "types=" + types.size() + " categories=" + cates.size() + " cates=" + cates);
         if (!types.isEmpty()) {
@@ -408,7 +412,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         if (index == 0) {
             mViewModel.homeContent();
         } else {
-            List<Class> types = mResult.getTypes();
+            List<Class> types = homeTypes.isEmpty() ? mResult.getTypes() : homeTypes;
             List<String> cates = getHome().getCategories();
             String typeId;
             if (!types.isEmpty()) {
