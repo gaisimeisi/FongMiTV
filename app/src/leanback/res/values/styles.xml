@@ -21,7 +21,7 @@
         <!-- 异形屏 / 车机挖孔区域也铺满内容，避免顶部留白 -->
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <!-- 窗口背景固定深色：任何未被子 View 覆盖的区域（包括车机顶部预留区）都是深色，不是白块 -->
-        <item name="android:windowBackground">@color/black</item>
+        <item name="android:windowBackground">@drawable/vod_thumb2</item>
         <item name="android:windowAnimationStyle">@style/NoAnim</item>
     </style>
 

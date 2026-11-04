@@ -228,7 +228,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         if (allGranted) DLNARendererService.start(this);
         initConfig();
         setTitle();
-        setLogo();
     }
 
     private void setTitle() {
@@ -459,7 +458,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void setLogo() {
-        ImgUtil.logo(mBinding.logo);
+        // 首页不再显示站点 logo 图标（按需求只留站点名）
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -468,7 +467,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             case VOD:
                 RefreshEvent.history();
                 RefreshEvent.home();
-                setLogo();
                 break;
             case COMMON:
                 setFunc();

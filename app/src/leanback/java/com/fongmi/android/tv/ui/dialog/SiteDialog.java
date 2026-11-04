@@ -48,11 +48,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private boolean list() {
-        return Setting.getSiteMode() == 0 || adapter.getItemCount() < GRID_COUNT;
+        // 只按用户设置决定；原来还有 `|| adapter.getItemCount() < GRID_COUNT`，
+        // 导致站点少于 10 个时永远退化成一行一个（影视仓是同款数据却能多列）
+        return Setting.getSiteMode() == 0;
     }
 
     private int getCount() {
-        return list() ? 1 : Math.clamp((int) Math.ceil((double) adapter.getItemCount() / GRID_COUNT), 2, 3);
+        return list() ? 1 : Math.clamp((int) Math.ceil((double) adapter.getItemCount() / GRID_COUNT), 3, 5);
     }
 
     @Override
