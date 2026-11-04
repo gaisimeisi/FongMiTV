@@ -25,6 +25,7 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.Product;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.Updater;
+import com.fongmi.android.tv.api.SiteApi;
 import com.fongmi.android.tv.api.config.LiveConfig;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.api.config.WallConfig;
@@ -341,6 +342,28 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         }
     }
 
+    private volatile boolean typesLoading;
+
+    /** 首页接口没给 class 时，用 ?ac=list 独立拉一次分类。 */
+    private void ensureTypes() {
+        if (typesLoading) return;
+        typesLoading = true;
+        new Thread(() -> {
+            try {
+                Result r = SiteApi.categoryList(getHome());
+                android.util.Log.d("TabBar", "ac=list -> types=" + r.getTypes().size());
+                if (!r.getTypes().isEmpty()) App.post(() -> {
+                    mResult.setTypes(r.getTypes());
+                    setTabBar();
+                });
+            } catch (Throwable e) {
+                android.util.Log.w("TabBar", "ac=list failed", e);
+            } finally {
+                typesLoading = false;
+            }
+        }).start();
+    }
+
     private void setTabBar() {
         // 影视仓风格：主页 + 站点返回的真实分类（电影/连续剧/综艺…）
         mBinding.tabBar.removeAllViews();
@@ -357,8 +380,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 if (!TextUtils.isEmpty(cate)) names.add(cate);
             }
         } else {
-            // 两层都空：用影视仓同款默认分类，点击时拿分类名当 tid（多数站点认这个）
-            names.addAll(Arrays.asList("电影", "连续剧", "综艺", "动漫", "短剧"));
+            // 两层都空：异步拉 ?ac=list 拿真实分类（不再塞假分类）
+            ensureTypes();
         }
         for (int i = 0; i < names.size(); i++) {
             android.widget.TextView tab = (android.widget.TextView) getLayoutInflater().inflate(R.layout.item_tab, mBinding.tabBar, false);
@@ -394,9 +417,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 if (index - 1 >= cates.size()) return;
                 typeId = cates.get(index - 1);
             } else {
-                List<String> def = Arrays.asList("电影", "连续剧", "综艺", "动漫", "短剧");
-                if (index - 1 >= def.size()) return;
-                typeId = def.get(index - 1);
+                return;
             }
             android.util.Log.d("TabBar", "select index=" + index + " typeId=" + typeId);
             mViewModel.categoryContent(getHome().getKey(), typeId, "1", true, new java.util.HashMap<>());
