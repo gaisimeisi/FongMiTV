@@ -3,6 +3,7 @@ package com.fongmi.android.tv.ui.custom;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -25,6 +26,7 @@ public class CustomVerticalGridView extends VerticalGridView {
     private boolean pressDown;
     private boolean pressUp;
     private boolean moveTop;
+    private boolean touching;
 
     public CustomVerticalGridView(@NonNull Context context) {
         this(context, null);
@@ -87,5 +89,28 @@ public class CustomVerticalGridView extends VerticalGridView {
         scrollToPosition(0);
         showHeader();
         return true;
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        switch (ev.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                touching = true;
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                touching = false;
+                break;
+            default:
+                break;
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    @Override
+    public void requestChildFocus(View child, View focused) {
+        // 手指拖动期间不跟随焦点滚动，否则列表会被拉回第一行
+        if (touching) return;
+        super.requestChildFocus(child, focused);
     }
 }
