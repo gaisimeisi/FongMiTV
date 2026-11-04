@@ -100,11 +100,21 @@ public class CustomVerticalGridView extends VerticalGridView {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 touching = false;
+                // 手指抬起后，把「选中位置」同步到当前第一个可见项。
+                // 否则选中位置还停在 0，一旦重布局/按方向键就会跳回顶部（影视仓 TvRecyclerView 的做法）
+                post(this::syncSelectedToVisible);
                 break;
             default:
                 break;
         }
         return super.dispatchTouchEvent(ev);
+    }
+
+    private void syncSelectedToVisible() {
+        if (getChildCount() == 0) return;
+        int first = getChildAdapterPosition(getChildAt(0));
+        if (first < 0 || first == getSelectedPosition()) return;
+        setSelectedPosition(first);
     }
 
     @Override
