@@ -97,6 +97,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private HistoryPresenter mPresenter;
     /** 首页返回的分类，切到分类页时 mResult 会被覆盖，必须单独存 */
     private List<Class> homeTypes = new ArrayList<>();
+    /** 当前选中的 Tab 下标，重建 Tab 时要恢复 */
+    private int currentTab;
     private VodPresenter mVodPresenter;
     private SiteViewModel mViewModel;
     private Intent pendingAction;
@@ -388,10 +390,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             // 两层都空：异步拉 ?ac=list 拿真实分类（不再塞假分类）
             ensureTypes();
         }
+        if (currentTab >= names.size()) currentTab = 0;
         for (int i = 0; i < names.size(); i++) {
             android.widget.TextView tab = (android.widget.TextView) getLayoutInflater().inflate(R.layout.item_tab, mBinding.tabBar, false);
             tab.setText(names.get(i));
-            tab.setSelected(i == 0);
+            tab.setSelected(i == currentTab);
             final int index = i;
             tab.setOnClickListener(v -> selectTab(index));
             mBinding.tabBar.addView(tab);
@@ -399,6 +402,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void selectTab(int index) {
+        currentTab = index;
         for (int i = 0; i < mBinding.tabBar.getChildCount(); i++) {
             mBinding.tabBar.getChildAt(i).setSelected(i == index);
         }
