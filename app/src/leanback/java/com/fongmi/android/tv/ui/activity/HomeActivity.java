@@ -191,7 +191,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         TVGridLayoutManager manager = new TVGridLayoutManager(this, column);
         manager.setOrientation(RecyclerView.VERTICAL);
         mBinding.recycler.setLayoutManager(manager);
-        mAdapter = new HomeVodAdapter(this::onItemClick);
+        mAdapter = new HomeVodAdapter(this::onItemClick).size(Product.getSpec(style));
         mBinding.recycler.setAdapter(mAdapter);
         mBinding.recycler.setOnLoadMoreListener(this::onLoadMore);
     }
