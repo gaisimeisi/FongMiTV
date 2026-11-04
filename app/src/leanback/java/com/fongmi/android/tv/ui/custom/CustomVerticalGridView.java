@@ -116,6 +116,8 @@ public class CustomVerticalGridView extends VerticalGridView {
 
     @Override
     public void scrollToPosition(int position) {
+        android.util.Log.d("ScrollDbg", "scrollToPosition(" + position + ") touching=" + touching
+                + "\n" + android.util.Log.getStackTraceString(new Throwable()));
         // 手指拖动期间，忽略任何程序性滚动（焦点跟随 / 数据刷新都会走到这里）
         if (touching) return;
         super.scrollToPosition(position);
