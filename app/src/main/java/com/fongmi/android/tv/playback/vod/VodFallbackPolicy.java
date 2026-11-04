@@ -92,7 +92,7 @@ class VodFallbackPolicy {
         // 之前直接按配置顺序塞，导致自动换源时经常跳到完全不相干的站点。
         String homeKey = "";
         try {
-            Site home = VodConfig.getHome();
+            Site home = VodConfig.get().getHome();
             if (home != null) homeKey = home.getKey();
         } catch (Throwable ignored) {
         }
