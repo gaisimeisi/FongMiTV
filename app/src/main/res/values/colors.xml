@@ -27,4 +27,8 @@
     <color name="white_90">#E6FFFFFF</color>
     <color name="splash_background">#141218</color>
 
+
+    <color name="color_focus_normal">#0b83ef</color>
+    <color name="color_focus_tab_view">#d7292b</color>
+    <color name="color_focus_poster">#eb641e</color>
 </resources>
