@@ -1614,6 +1614,43 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         if (isFullscreen()) onKeyCenter();
     }
 
+    /** 横向每滑动这么多像素，跳 5 秒 */
+    private static final float SEEK_STEP_PX = 40f;
+    /** 纵向每滑动这么多像素，调一格音量 */
+    private static final float VOLUME_STEP_PX = 30f;
+
+    private float scrollX;
+    private float scrollY;
+
+    @Override
+    public boolean onScroll(float dx, float dy) {
+        if (!isFullscreen()) return false;
+        if (Math.abs(dx) > Math.abs(dy)) {
+            scrollX += dx;
+            if (Math.abs(scrollX) >= SEEK_STEP_PX) {
+                long steps = (long) (scrollX / SEEK_STEP_PX);
+                long delta = steps * 5_000L;
+                long target = Math.max(0, player().getCurrentPosition() + delta);
+                player().seekTo(target);
+                scrollX -= steps * SEEK_STEP_PX;
+            }
+            return true;
+        }
+        scrollY += dy;
+        if (Math.abs(scrollY) >= VOLUME_STEP_PX) {
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(android.content.Context.AUDIO_SERVICE);
+            if (am != null) {
+                int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+                int cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+                // 手指上滑（dy<0）增大音量
+                int step = scrollY < 0 ? 1 : -1;
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.max(0, Math.min(max, cur + step)), 0);
+            }
+            scrollY -= Math.signum(scrollY) * VOLUME_STEP_PX;
+        }
+        return true;
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);

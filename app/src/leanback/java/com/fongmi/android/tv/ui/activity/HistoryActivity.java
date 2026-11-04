@@ -50,9 +50,9 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
     }
 
     private void loadHistory() {
-        List<History> items = History.get(VodConfig.getCid());
-        if (items == null || items.isEmpty()) return;
-        int column = Product.getColumn();
+        List<History> items = queryHistory();
+        if (items.isEmpty()) return;
+        int column = Math.max(1, Product.getColumn());
         for (List<History> part : Lists.partition(items, column)) {
             ArrayObjectAdapter row = new ArrayObjectAdapter(mPresenter);
             row.addAll(0, new ArrayList<>(part));
@@ -60,13 +60,26 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
         }
     }
 
+    private List<History> queryHistory() {
+        try {
+            // 未配置数据源时 VodConfig.getConfig() 为 null，getCid() 会 NPE
+            int cid = VodConfig.get().getConfig() != null ? VodConfig.getCid() : 0;
+            List<History> items = History.get(cid);
+            return items == null ? new ArrayList<>() : items;
+        } catch (Throwable e) {
+            return new ArrayList<>();
+        }
+    }
+
     @Override
     public void onItemClick(History item) {
+        if (item == null || item.getKey() == null || item.getVodId() == null) return;
         VideoActivity.start(this, item.getKey(), item.getVodId(), item.getVodName(), item.getVodPic());
     }
 
     @Override
     public void onItemDelete(History item) {
+        if (item == null) return;
         item.delete();
         recreate();
     }

@@ -1,6 +1,8 @@
 package com.fongmi.android.tv.ui.custom;
 
 import android.content.Context;
+
+import androidx.annotation.NonNull;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
@@ -32,6 +34,13 @@ public final class VodInput extends BaseInput<VodInput.Listener> {
 
     public void setFullscreen(boolean fullscreen) {
         this.fullscreen = fullscreen;
+    }
+
+    @Override
+    public boolean onScroll(@NonNull MotionEvent e1, @NonNull MotionEvent e2, float distanceX, float distanceY) {
+        if (!fullscreen) return false;
+        // distanceX/Y 是「手指移动的反向」，取负还原成手指方向
+        return listener.onScroll(-distanceX, -distanceY);
     }
 
     private boolean isSupportedKey(KeyEvent event) {

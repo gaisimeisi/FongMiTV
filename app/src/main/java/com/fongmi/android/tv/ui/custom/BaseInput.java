@@ -167,5 +167,16 @@ public abstract class BaseInput<T extends BaseInput.Listener> extends GestureDet
         default boolean onSeekTap(float x) {
             return false;
         }
+
+        /**
+         * 滑动回调。
+         *
+         * @param dx 水平位移（右为正）
+         * @param dy 垂直位移（下为正）
+         * @return true 表示已消费
+         */
+        default boolean onScroll(float dx, float dy) {
+            return false;
+        }
     }
 }
