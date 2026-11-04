@@ -142,6 +142,7 @@ jobs:
             :lib-datasource-okhttp:assembleRelease \
             :lib-database:assembleRelease \
             :lib-extractor:assembleRelease \
+            :lib-container:assembleRelease \
             :lib-effect:assembleRelease \
             :lib-ui:assembleRelease \
             :lib-session:assembleRelease \
