@@ -201,8 +201,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private void onResult(Result result) {
         mAdapter.remove("progress");
         mResult = result;
-        // 首次拿到数据后才能生成 Tab（分类名来自站点返回）
-        if (mBinding.tabBar.getChildCount() == 0) setTabBar();
+        // 每次有数据都重建 Tab：冷启动第一次 onResult 时 types 可能还是 0，
+        // 后面补到 types 时必须能刷出来（setTabBar 内部会 removeAllViews，幂等）
+        setTabBar();
         addVideo(result);
         Cache.clear().put(result);
     }
