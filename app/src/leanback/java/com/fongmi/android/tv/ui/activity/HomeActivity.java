@@ -52,10 +52,12 @@ import com.fongmi.android.tv.playback.ExternalPlayback;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.service.DLNARendererService;
 import com.fongmi.android.tv.service.PlaybackService;
+import com.skw.library.TVRecyclerView;
+import com.skw.library.layoutmanager.TVGridLayoutManager;
+import com.fongmi.android.tv.ui.adapter.HomeVodAdapter;
 import com.fongmi.android.tv.ui.adapter.BaseDiffCallback;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.custom.CustomRowPresenter;
-import com.fongmi.android.tv.ui.custom.CustomScroller;
 import com.fongmi.android.tv.ui.custom.CustomSelector;
 import com.fongmi.android.tv.ui.custom.CustomTitleView;
 import com.fongmi.android.tv.ui.dialog.LocalConnectDialog;
@@ -94,7 +96,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private ActivityHomeBinding mBinding;
     private ArrayObjectAdapter mHistoryAdapter;
-    private ArrayObjectAdapter mAdapter;
+    private HomeVodAdapter mAdapter;
     private HistoryPresenter mPresenter;
     /** 首页返回的分类，切到分类页时 mResult 会被覆盖，必须单独存 */
     private List<Class> homeTypes = new ArrayList<>();
@@ -102,7 +104,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private int currentTab;
     /** 上次构建 Tab 用的内容签名，避免每次刷新都重建（重建会让下方列表重新布局、丢失滚动位置） */
     private String tabSignature = "";
-    private CustomScroller mScroller;
+    private int page = 1;
     /** 当前分类的 typeId，供分页加载用；主页时为 null */
     private String currentTypeId;
     private VodPresenter mVodPresenter;
@@ -189,19 +191,17 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         checkAction(intent);
     }
 
-    @SuppressLint("RestrictedApi")
     private void setRecyclerView() {
-        CustomSelector selector = new CustomSelector();
-        selector.addPresenter(Integer.class, new HeaderPresenter());
-        selector.addPresenter(String.class, new ProgressPresenter());
-        selector.addPresenter(Vod.class, new VodPresenter(this, Style.list()));
-        selector.addPresenter(ListRow.class, new CustomRowPresenter(16), VodPresenter.class);
-        selector.addPresenter(ListRow.class, new CustomRowPresenter(16), FuncPresenter.class);
-        selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED), HistoryPresenter.class);
-        mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
-        mScroller = new CustomScroller(this::onLoadMore);
-        mBinding.recycler.addOnScrollListener(mScroller);
+        // 使用 TVRecyclerView（影视仓同款），触摸滚动不会回弹到第一行
+        Style style = mResult.getStyle(getHome().getStyle());
+        int column = Math.max(1, Product.getColumn(style));
+        TVGridLayoutManager manager = new TVGridLayoutManager(this, column);
+        manager.setOrientation(RecyclerView.VERTICAL);
+        mBinding.recycler.setLayoutManager(manager);
         mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
+        mAdapter = new HomeVodAdapter(item -> VodActivity.start(this, mResult, item));
+        mBinding.recycler.setAdapter(mAdapter);
+        mBinding.recycler.setOnLoadMoreListener(this::onLoadMore);
     }
 
     private void setViewModel() {
@@ -211,15 +211,14 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void onResult(Result result) {
-        mAdapter.remove("progress");
         mResult = result;
         if (!result.getTypes().isEmpty()) homeTypes = result.getTypes();
-        // 通知分页器：本页加载完成，可以继续加载下一页
-        if (mScroller != null) mScroller.endLoading(result);
-        // 每次有数据都重建 Tab：冷启动第一次 onResult 时 types 可能还是 0，
-        // 后面补到 types 时必须能刷出来（setTabBar 内部会 removeAllViews，幂等）
+        if (mBinding != null && mBinding.progressLayout.isProgress()) mBinding.progressLayout.showContent();
+        // 每次有数据都重建 Tab：冷启动第一次 onResult 时 types 可能还是 0
         setTabBar();
         addVideo(result);
+        // 通知 TVRecyclerView：本页加载完毕，可以继续加载更多
+        mBinding.recycler.setLoadMoreComplete();
         Cache.clear().put(result);
     }
 
@@ -309,31 +308,15 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void getVideo() {
         mResult = Result.empty();
-        int index = getRecommendIndex();
-        boolean gone = mAdapter.indexOf("progress") == -1;
-        boolean hasItem = gone && mAdapter.size() > index;
-        if (hasItem) mAdapter.removeItems(index, mAdapter.size() - index);
-        if (gone) mAdapter.add("progress");
+        if (mAdapter != null) mAdapter.clear();
         mViewModel.homeContent();
     }
 
     private void addVideo(Result result) {
-        Style style = result.getStyle(getHome().getStyle());
-        if (style.isList()) mAdapter.addAll(mAdapter.size(), result.getList());
-        else addGrid(result.getList(), style);
-    }
-
-    private void addGrid(List<Vod> items, Style style) {
-        List<ListRow> rows = new ArrayList<>();
-        if (mVodPresenter == null || !mVodPresenter.matches(style)) mVodPresenter = new VodPresenter(this, style);
-        for (List<Vod> part : Lists.partition(items, Product.getColumn(style))) rows.add(createVideoRow(part));
-        mAdapter.addAll(mAdapter.size(), rows);
-    }
-
-    private ListRow createVideoRow(List<Vod> items) {
-        ArrayObjectAdapter adapter = new ArrayObjectAdapter(mVodPresenter);
-        adapter.addAll(0, items);
-        return new ListRow(adapter);
+        List<Vod> list = result.getList();
+        if (list.isEmpty()) return;
+        if (mAdapter.getItemCountSafely() == 0) mAdapter.setItems(list);
+        else mAdapter.addItems(list);
     }
 
     private void setFunc() {
@@ -431,8 +414,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mBinding.toolbar.setVisibility(index == 0 ? View.VISIBLE : View.GONE);
 
         mAdapter.clear();
-        mAdapter.add("progress");
-        if (mScroller != null) mScroller.reset();
+        page = 1;
         if (index == 0) {
             currentTypeId = null;
             mViewModel.homeContent();
@@ -455,11 +437,11 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         }
     }
 
-    /** 列表滚到底时由 CustomScroller 回调，加载下一页 */
-    private boolean onLoadMore(String page) {
-        if (currentTypeId == null || currentTypeId.isEmpty()) return false;
-        mViewModel.categoryContent(getHome().getKey(), currentTypeId, page, true, new java.util.HashMap<>());
-        return true;
+    /** 列表滚到底时由 TVRecyclerView 回调，加载下一页 */
+    private void onLoadMore() {
+        if (currentTypeId == null || currentTypeId.isEmpty()) return;
+        page++;
+        mViewModel.categoryContent(getHome().getKey(), currentTypeId, String.valueOf(page), true, new java.util.HashMap<>());
     }
 
     private void getHistory() {
