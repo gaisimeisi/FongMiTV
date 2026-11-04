@@ -128,4 +128,17 @@ public class CustomVerticalGridView extends VerticalGridView {
         if (touching) return;
         super.smoothScrollToPosition(position);
     }
+
+    @Override
+    protected void onScrollChanged(int l, int t, int oldl, int oldt) {
+        super.onScrollChanged(l, t, oldl, oldt);
+        android.util.Log.d("ScrollDbg", "onScrollChanged t=" + t + " old=" + oldt + " touching=" + touching
+                + "\n" + android.util.Log.getStackTraceString(new Throwable()));
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent e) {
+        android.util.Log.d("ScrollDbg", "onTouch " + e.getActionMasked() + " y=" + e.getY());
+        return super.onTouchEvent(e);
+    }
 }
