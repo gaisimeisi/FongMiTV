@@ -115,7 +115,9 @@ class VodFallbackPolicy {
     }
 
     private boolean mismatch(Vod item) {
-        if (host.getVodId().equals(item.getId())) return true;
+        // 原来这里还有 `if (host.getVodId().equals(item.getId())) return true;`，
+        // 会把「当前正在播的这一条」排除掉；而原站点往往只有这一个片源，
+        // 结果就是原站点永远选不到，直接跳到别家。是否重复由 addFailedId 兜底，不会死循环。
         if (state.hasFailedId(item.getId())) return true;
         if (state.isAutoFallback()) return !item.getName().equals(state.getSearchKeyword());
         return !item.getName().contains(state.getSearchKeyword());
