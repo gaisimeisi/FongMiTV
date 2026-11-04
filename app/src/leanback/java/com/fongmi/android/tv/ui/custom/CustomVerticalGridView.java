@@ -86,7 +86,7 @@ public class CustomVerticalGridView extends VerticalGridView {
     public boolean moveToTop() {
         if (views == null || getSelectedPosition() == 0 || getAdapter() == null || getAdapter().getItemCount() == 0) return false;
         for (View view : views) if (view.getId() == R.id.recycler) view.requestFocus();
-        scrollToPosition(0);
+        super.scrollToPosition(0);
         showHeader();
         return true;
     }
@@ -112,5 +112,18 @@ public class CustomVerticalGridView extends VerticalGridView {
         // 手指拖动期间不跟随焦点滚动，否则列表会被拉回第一行
         if (touching) return;
         super.requestChildFocus(child, focused);
+    }
+
+    @Override
+    public void scrollToPosition(int position) {
+        // 手指拖动期间，忽略任何程序性滚动（焦点跟随 / 数据刷新都会走到这里）
+        if (touching) return;
+        super.scrollToPosition(position);
+    }
+
+    @Override
+    public void smoothScrollToPosition(int position) {
+        if (touching) return;
+        super.smoothScrollToPosition(position);
     }
 }
