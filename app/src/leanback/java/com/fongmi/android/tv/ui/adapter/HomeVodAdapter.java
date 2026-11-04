@@ -82,8 +82,12 @@ public class HomeVodAdapter extends RecyclerView.Adapter<HomeVodAdapter.Holder> 
     public void onBindViewHolder(@NonNull Holder holder, int position) {
         holder.bind(items.get(position), listener);
         if (size != null) {
+            // 关键：itemView 必须给固定高度。
+            // 根布局是 wrap_content，但测量时图片还没异步加载，高度接近 0；
+            // 图片加载完撑开后 GridLayoutManager 仍按旧高度排布，就出现上下行重叠。
             ViewGroup.LayoutParams lp = holder.binding.getRoot().getLayoutParams();
             lp.width = size[0];
+            lp.height = size[1] + com.fongmi.android.tv.utils.ResUtil.dp2px(56);
             holder.binding.getRoot().setLayoutParams(lp);
             ViewGroup.LayoutParams ip = holder.binding.image.getLayoutParams();
             ip.height = size[1];

@@ -35,9 +35,11 @@ public class HistoryPresenter extends Presenter {
     }
 
     private void setLayoutSize() {
-        int space = ResUtil.dp2px(48) + ResUtil.dp2px(16 * (Product.getColumn() - 1));
+        // 和首页保持同一套栅格：都用 Product.getColumn()，避免两边列数不一致导致卡片宽度对不上
+        int column = Math.max(1, com.fongmi.android.tv.Product.getColumn());
+        int space = ResUtil.dp2px(48) + ResUtil.dp2px(16 * (column - 1));
         int base = ResUtil.getScreenWidth() - space;
-        width = base / Product.getColumn();
+        width = base / column;
         height = (int) (width / 0.75f);
     }
 
