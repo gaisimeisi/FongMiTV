@@ -88,8 +88,24 @@ class VodFallbackPolicy {
     }
 
     private List<Site> getSearchableSites() {
+        // 原站点必须排最前：换源时优先用当前站点，实在不行才轮到其它站源。
+        // 之前直接按配置顺序塞，导致自动换源时经常跳到完全不相干的站点。
+        String homeKey = "";
+        try {
+            Site home = VodConfig.getHome();
+            if (home != null) homeKey = home.getKey();
+        } catch (Throwable ignored) {
+        }
+
         List<Site> sites = new ArrayList<>();
-        for (Site site : VodConfig.get().getSites()) if (isPass(site)) sites.add(site);
+        if (!homeKey.isEmpty()) {
+            for (Site site : VodConfig.get().getSites()) {
+                if (homeKey.equals(site.getKey()) && isPass(site)) sites.add(site);
+            }
+        }
+        for (Site site : VodConfig.get().getSites()) {
+            if (!homeKey.equals(site.getKey()) && isPass(site)) sites.add(site);
+        }
         return sites;
     }
 
