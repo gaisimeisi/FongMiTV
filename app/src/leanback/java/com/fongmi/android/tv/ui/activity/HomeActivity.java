@@ -99,6 +99,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private List<Class> homeTypes = new ArrayList<>();
     /** 当前选中的 Tab 下标，重建 Tab 时要恢复 */
     private int currentTab;
+    /** 上次构建 Tab 用的内容签名，避免每次刷新都重建（重建会让下方列表重新布局、丢失滚动位置） */
+    private String tabSignature = "";
     private VodPresenter mVodPresenter;
     private SiteViewModel mViewModel;
     private Intent pendingAction;
@@ -373,7 +375,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void setTabBar() {
         // 影视仓风格：主页 + 站点返回的真实分类（电影/连续剧/综艺…）
-        mBinding.tabBar.removeAllViews();
         List<String> names = new ArrayList<>();
         names.add("主页");
         List<Class> types = homeTypes.isEmpty() ? mResult.getTypes() : homeTypes;
@@ -391,6 +392,16 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             ensureTypes();
         }
         if (currentTab >= names.size()) currentTab = 0;
+        String signature = String.join("|", names);
+        if (signature.equals(tabSignature) && mBinding.tabBar.getChildCount() == names.size()) {
+            // Tab 内容没变：只更新选中态，绝不重建（重建会打断下方列表滚动）
+            for (int i = 0; i < mBinding.tabBar.getChildCount(); i++) {
+                mBinding.tabBar.getChildAt(i).setSelected(i == currentTab);
+            }
+            return;
+        }
+        tabSignature = signature;
+        mBinding.tabBar.removeAllViews();
         for (int i = 0; i < names.size(); i++) {
             android.widget.TextView tab = (android.widget.TextView) getLayoutInflater().inflate(R.layout.item_tab, mBinding.tabBar, false);
             tab.setText(names.get(i));
