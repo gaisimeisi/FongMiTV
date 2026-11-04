@@ -166,13 +166,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     @Override
     protected void initEvent() {
         mBinding.title.setListener(this);
-        mBinding.recycler.addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
-            @Override
-            public void onChildViewHolderSelected(@NonNull RecyclerView parent, @Nullable RecyclerView.ViewHolder child, int position, int subposition) {
-                mBinding.toolbar.setVisibility(position == 0 ? View.VISIBLE : View.GONE);
-                if (mPresenter.isDelete()) setHistoryDelete(false);
-            }
-        });
     }
 
     private void checkAction(Intent intent) {
@@ -198,8 +191,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         TVGridLayoutManager manager = new TVGridLayoutManager(this, column);
         manager.setOrientation(RecyclerView.VERTICAL);
         mBinding.recycler.setLayoutManager(manager);
-        mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
-        mAdapter = new HomeVodAdapter(item -> VodActivity.start(this, mResult, item));
+        mAdapter = new HomeVodAdapter(this::onItemClick);
         mBinding.recycler.setAdapter(mAdapter);
         mBinding.recycler.setOnLoadMoreListener(this::onLoadMore);
     }
@@ -461,18 +453,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private void clearHistory() {
-        mAdapter.removeItems(getHistoryIndex(), 1);
         History.clear(VodConfig.getCid());
         mPresenter.setDelete(false);
         mHistoryAdapter.clear();
-    }
-
-    private int getHistoryIndex() {
-        return mAdapter.indexOf(R.string.home_history) + 1;
-    }
-
-    private int getRecommendIndex() {
-        return mAdapter.indexOf(R.string.home_recommend) + 1;
     }
 
     private void setLogo() {
@@ -582,7 +565,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     public void onItemDelete(History item) {
         mHistoryAdapter.remove(item.delete());
         if (mHistoryAdapter.size() > 0) return;
-        mAdapter.removeItems(getHistoryIndex(), 1);
         mPresenter.setDelete(false);
     }
 
@@ -633,7 +615,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             showContent();
         } else if (mPresenter.isDelete()) {
             setHistoryDelete(false);
-        } else if (mBinding.recycler.getSelectedPosition() != 0) {
+        } else if (mBinding.recycler.getChildCount() > 0
+                && mBinding.recycler.getChildAdapterPosition(mBinding.recycler.getChildAt(0)) > 0) {
             mBinding.recycler.scrollToPosition(0);
         } else {
             if (PlaybackService.isRunning()) Util.moveToBackground(this);

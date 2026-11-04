@@ -66,6 +66,11 @@ public class HomeVodAdapter extends RecyclerView.Adapter<HomeVodAdapter.Holder> 
         return items.size();
     }
 
+    @Override
+    public int getItemCount() {
+        return items.size();
+    }
+
     @NonNull
     @Override
     public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
