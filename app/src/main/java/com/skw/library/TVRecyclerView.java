@@ -18,6 +18,7 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.Toast;
 
+import com.fongmi.android.tv.R;
 import com.skw.library.focus.FocusEffectViewUtil;
 import com.skw.library.holder.RVHolder;
 
