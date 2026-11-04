@@ -96,10 +96,13 @@ public class CustomVerticalGridView extends VerticalGridView {
         switch (ev.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 touching = true;
+                // 触摸期间不参与焦点，从源头断掉「焦点跟随滚动」把列表拉回顶部
+                setFocusableInTouchMode(false);
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 touching = false;
+                setFocusableInTouchMode(true);
                 // 手指抬起后，把「选中位置」同步到当前第一个可见项。
                 // 否则选中位置还停在 0，一旦重布局/按方向键就会跳回顶部（影视仓 TvRecyclerView 的做法）
                 post(this::syncSelectedToVisible);

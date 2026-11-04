@@ -55,6 +55,7 @@ import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.ui.adapter.BaseDiffCallback;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.custom.CustomRowPresenter;
+import com.fongmi.android.tv.ui.custom.CustomScroller;
 import com.fongmi.android.tv.ui.custom.CustomSelector;
 import com.fongmi.android.tv.ui.custom.CustomTitleView;
 import com.fongmi.android.tv.ui.dialog.LocalConnectDialog;
@@ -101,6 +102,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private int currentTab;
     /** 上次构建 Tab 用的内容签名，避免每次刷新都重建（重建会让下方列表重新布局、丢失滚动位置） */
     private String tabSignature = "";
+    private CustomScroller mScroller;
+    /** 当前分类的 typeId，供分页加载用；主页时为 null */
+    private String currentTypeId;
     private VodPresenter mVodPresenter;
     private SiteViewModel mViewModel;
     private Intent pendingAction;
@@ -195,6 +199,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16), FuncPresenter.class);
         selector.addPresenter(ListRow.class, new CustomRowPresenter(16, FocusHighlight.ZOOM_FACTOR_SMALL, HorizontalGridView.FOCUS_SCROLL_ALIGNED), HistoryPresenter.class);
         mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(selector)));
+        mScroller = new CustomScroller(this::onLoadMore);
+        mBinding.recycler.addOnScrollListener(mScroller);
         mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
     }
 
@@ -208,6 +214,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mAdapter.remove("progress");
         mResult = result;
         if (!result.getTypes().isEmpty()) homeTypes = result.getTypes();
+        // 通知分页器：本页加载完成，可以继续加载下一页
+        if (mScroller != null) mScroller.endLoading(result);
         // 每次有数据都重建 Tab：冷启动第一次 onResult 时 types 可能还是 0，
         // 后面补到 types 时必须能刷出来（setTabBar 内部会 removeAllViews，幂等）
         setTabBar();
@@ -424,7 +432,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
         mAdapter.clear();
         mAdapter.add("progress");
+        if (mScroller != null) mScroller.reset();
         if (index == 0) {
+            currentTypeId = null;
             mViewModel.homeContent();
         } else {
             List<Class> types = homeTypes.isEmpty() ? mResult.getTypes() : homeTypes;
@@ -440,8 +450,16 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
                 return;
             }
             android.util.Log.d("TabBar", "select index=" + index + " typeId=" + typeId);
+            currentTypeId = typeId;
             mViewModel.categoryContent(getHome().getKey(), typeId, "1", true, new java.util.HashMap<>());
         }
+    }
+
+    /** 列表滚到底时由 CustomScroller 回调，加载下一页 */
+    private boolean onLoadMore(String page) {
+        if (currentTypeId == null || currentTypeId.isEmpty()) return false;
+        mViewModel.categoryContent(getHome().getKey(), currentTypeId, page, true, new java.util.HashMap<>());
+        return true;
     }
 
     private void getHistory() {
