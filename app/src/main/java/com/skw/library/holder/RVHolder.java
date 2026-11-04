@@ -4,7 +4,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.skw.library.R;
+import com.fongmi.android.tv.R;
 import com.skw.library.TVRecyclerView;
 
 /**

@@ -5,7 +5,7 @@ import android.app.Dialog;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.skw.library.R;
+import com.fongmi.android.tv.R;
 
 /**
  * @创建人 weishukai

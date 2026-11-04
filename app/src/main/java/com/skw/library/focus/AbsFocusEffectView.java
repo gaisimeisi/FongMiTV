@@ -17,7 +17,7 @@ import android.view.ViewParent;
 import android.view.ViewTreeObserver;
 import android.view.animation.DecelerateInterpolator;
 
-import com.skw.library.R;
+import com.fongmi.android.tv.R;
 import com.skw.library.TVRecyclerView;
 
 import java.lang.ref.WeakReference;
