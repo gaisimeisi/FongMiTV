@@ -347,13 +347,18 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         List<String> names = new ArrayList<>();
         names.add("主页");
         List<Class> types = mResult.getTypes();
+        List<String> cates = getHome().getCategories();
+        android.util.Log.d("TabBar", "types=" + types.size() + " categories=" + cates.size() + " cates=" + cates);
         if (!types.isEmpty()) {
             for (Class type : types) names.add(type.getTypeName());
-        } else {
+        } else if (!cates.isEmpty()) {
             // 有些站点的 homeContent 不返回 types，分类只在 Site.categories 里
-            for (String cate : getHome().getCategories()) {
+            for (String cate : cates) {
                 if (!TextUtils.isEmpty(cate)) names.add(cate);
             }
+        } else {
+            // 两层都空：用影视仓同款默认分类，点击时拿分类名当 tid（多数站点认这个）
+            names.addAll(Arrays.asList("电影", "连续剧", "综艺", "动漫", "短剧"));
         }
         for (int i = 0; i < names.size(); i++) {
             android.widget.TextView tab = (android.widget.TextView) getLayoutInflater().inflate(R.layout.item_tab, mBinding.tabBar, false);
@@ -380,15 +385,20 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             mViewModel.homeContent();
         } else {
             List<Class> types = mResult.getTypes();
+            List<String> cates = getHome().getCategories();
             String typeId;
             if (!types.isEmpty()) {
                 if (index - 1 >= types.size()) return;
                 typeId = types.get(index - 1).getTypeId();
-            } else {
-                List<String> cates = getHome().getCategories();
+            } else if (!cates.isEmpty()) {
                 if (index - 1 >= cates.size()) return;
                 typeId = cates.get(index - 1);
+            } else {
+                List<String> def = Arrays.asList("电影", "连续剧", "综艺", "动漫", "短剧");
+                if (index - 1 >= def.size()) return;
+                typeId = def.get(index - 1);
             }
+            android.util.Log.d("TabBar", "select index=" + index + " typeId=" + typeId);
             mViewModel.categoryContent(getHome().getKey(), typeId, "1", true, new java.util.HashMap<>());
         }
     }
