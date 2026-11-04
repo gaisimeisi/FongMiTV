@@ -684,7 +684,6 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         mHistory = history;
         mBinding.control.action.opening.setText(openingText(history.getOpening()));
         mBinding.control.action.ending.setText(endingText(history.getEnding()));
-        player().setSpeed(SpeedSetting.getPlayback());
         setScale(getScale());
         setPartAdapter();
     }
@@ -968,12 +967,12 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void onSpeed() {
-        SpeedSettingDialog.create().save(true).show(this);
+        SpeedSettingDialog.create().show(this);
         hideControl();
     }
 
     private boolean onSpeedLong() {
-        SpeedSetting.putPlayback(PlaybackAction.toggleSpeed(player(), mBinding.widget.message));
+        PlaybackAction.toggleSpeed(player(), mBinding.widget.message);
         return true;
     }
 
@@ -1630,7 +1629,7 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
             if (Math.abs(scrollX) >= SEEK_STEP_PX) {
                 long steps = (long) (scrollX / SEEK_STEP_PX);
                 long delta = steps * 5_000L;
-                long target = Math.max(0, player().getCurrentPosition() + delta);
+                long target = Math.max(0, player().getPlayer().getCurrentPosition() + delta);
                 player().seekTo(target);
                 scrollX -= steps * SEEK_STEP_PX;
             }
