@@ -6,8 +6,10 @@ import android.os.Bundle;
 import android.view.ViewGroup;
 
 import androidx.leanback.widget.ArrayObjectAdapter;
+import androidx.leanback.widget.ClassPresenterSelector;
 import androidx.leanback.widget.ItemBridgeAdapter;
 import androidx.leanback.widget.ListRow;
+import androidx.leanback.widget.ListRowPresenter;
 import androidx.leanback.widget.VerticalGridView;
 import androidx.viewbinding.ViewBinding;
 
@@ -45,7 +47,11 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
     @Override
     protected void initView(Bundle savedInstanceState) {
         mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
-        mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter = new ArrayObjectAdapter(mPresenter = new HistoryPresenter(this))));
+        mPresenter = new HistoryPresenter(this);
+        ClassPresenterSelector selector = new ClassPresenterSelector();
+        selector.addClassPresenter(ListRow.class, new ListRowPresenter());
+        mAdapter = new ArrayObjectAdapter(selector);
+        mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter));
         loadHistory();
     }
 

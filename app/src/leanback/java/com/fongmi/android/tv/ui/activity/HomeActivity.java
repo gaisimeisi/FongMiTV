@@ -346,7 +346,15 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mBinding.tabBar.removeAllViews();
         List<String> names = new ArrayList<>();
         names.add("主页");
-        for (Class type : mResult.getTypes()) names.add(type.getTypeName());
+        List<Class> types = mResult.getTypes();
+        if (!types.isEmpty()) {
+            for (Class type : types) names.add(type.getTypeName());
+        } else {
+            // 有些站点的 homeContent 不返回 types，分类只在 Site.categories 里
+            for (String cate : getHome().getCategories()) {
+                if (!TextUtils.isEmpty(cate)) names.add(cate);
+            }
+        }
         for (int i = 0; i < names.size(); i++) {
             android.widget.TextView tab = (android.widget.TextView) getLayoutInflater().inflate(R.layout.item_tab, mBinding.tabBar, false);
             tab.setText(names.get(i));
@@ -372,9 +380,16 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             mViewModel.homeContent();
         } else {
             List<Class> types = mResult.getTypes();
-            if (index - 1 >= types.size()) return;
-            Class type = types.get(index - 1);
-            mViewModel.categoryContent(getHome().getKey(), type.getTypeId(), "1", true, new java.util.HashMap<>());
+            String typeId;
+            if (!types.isEmpty()) {
+                if (index - 1 >= types.size()) return;
+                typeId = types.get(index - 1).getTypeId();
+            } else {
+                List<String> cates = getHome().getCategories();
+                if (index - 1 >= cates.size()) return;
+                typeId = cates.get(index - 1);
+            }
+            mViewModel.categoryContent(getHome().getKey(), typeId, "1", true, new java.util.HashMap<>());
         }
     }
 
@@ -488,6 +503,9 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         else if (item.getResId() == R.string.home_search) SearchActivity.start(this);
         else if (item.getResId() == R.string.home_setting) SettingActivity.start(this);
         else if (item.getResId() == R.string.home_history) HistoryActivity.start(this);
+        else if (item.getResId() == R.string.home_config) SettingActivity.start(this);
+        else if (item.getResId() == R.string.home_line) SettingActivity.start(this);
+        else if (item.getResId() == R.string.home_local) SettingActivity.start(this);
     }
 
     @Override
