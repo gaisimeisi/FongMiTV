@@ -90,6 +90,9 @@ jobs:
             --exclude='app/src/main/res/values/attrs.xml' \
             --exclude='app/src/main/java/com/fongmi/android/tv/ui/custom/BaseInput.java' \
             --exclude='app/src/main/java/com/fongmi/android/tv/api/SiteApi.java' \
+            --exclude='app/src/main/res/drawable/ic_launcher_foreground.xml' \
+            --exclude='app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml' \
+            --exclude='app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml' \
             --exclude='app/src/main/java/com/fongmi/android/tv/utils/Github.java' \
             --exclude='catvod/src/main/java/com/github/catvod/utils/RuntimeModule.java' \
             --exclude='catvod/src/main/java/com/github/catvod/net/OkHttp.java' \

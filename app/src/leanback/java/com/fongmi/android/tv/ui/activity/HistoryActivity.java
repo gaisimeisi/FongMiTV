@@ -18,6 +18,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.History;
 import com.fongmi.android.tv.databinding.ActivityHistoryBinding;
+import com.fongmi.android.tv.ui.adapter.HistoryVodAdapter;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.presenter.HistoryPresenter;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -29,10 +30,10 @@ import java.util.List;
 /**
  * 影视仓风格：最近观看独立成页，不再占用首页。
  */
-public class HistoryActivity extends BaseActivity implements HistoryPresenter.OnClickListener {
+public class HistoryActivity extends BaseActivity {
 
     private ActivityHistoryBinding mBinding;
-    private ArrayObjectAdapter mAdapter;
+    private HistoryVodAdapter mAdapter;
     private HistoryPresenter mPresenter;
 
     public static void start(Activity activity) {
@@ -46,23 +47,32 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
 
     @Override
     protected void initView(Bundle savedInstanceState) {
-        mBinding.recycler.setVerticalSpacing(ResUtil.dp2px(16));
-        mPresenter = new HistoryPresenter(this);
-        ClassPresenterSelector selector = new ClassPresenterSelector();
-        selector.addClassPresenter(ListRow.class, new ListRowPresenter());
-        mAdapter = new ArrayObjectAdapter(selector);
-        mBinding.recycler.setAdapter(new ItemBridgeAdapter(mAdapter));
+        // 和首页同一套：TVRecyclerView + 5 列网格 + 同一个卡片布局
+        int column = Math.max(1, Product.getColumn());
+        com.skw.library.layoutmanager.TVGridLayoutManager manager =
+                new com.skw.library.layoutmanager.TVGridLayoutManager(this, column);
+        manager.setOrientation(androidx.recyclerview.widget.RecyclerView.VERTICAL);
+        mBinding.recycler.setLayoutManager(manager);
+        mAdapter = new HistoryVodAdapter(this::onItemClick).size(Product.getSpec(com.fongmi.android.tv.bean.Style.rect()));
+        mBinding.recycler.setAdapter(mAdapter);
+        mBinding.recycler.addItemDecoration(new androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(android.graphics.Rect outRect, android.view.View view,
+                                       androidx.recyclerview.widget.RecyclerView parent,
+                                       androidx.recyclerview.widget.RecyclerView.State state) {
+                outRect.bottom = ResUtil.dp2px(16);
+            }
+        });
         loadHistory();
     }
 
     private void loadHistory() {
         List<History> items = queryHistory();
-        if (items.isEmpty()) return;
-        // 全部塞进一行：ListRow 内部是 HorizontalGridView，超出部分横向滚动，
-        // 不再按列数折行（原来 partition 成 5+2 两行，看着很散）。
-        ArrayObjectAdapter row = new ArrayObjectAdapter(mPresenter);
-        row.addAll(0, new ArrayList<>(items));
-        mAdapter.add(new ListRow(row));
+        mAdapter.setItems(items);
+    }
+
+    private void onItemClick(History item) {
+        VideoActivity.start(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic());
     }
 
     private List<History> queryHistory() {
@@ -76,21 +86,6 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
         }
     }
 
-    @Override
-    public void onItemClick(History item) {
-        if (item == null || item.getKey() == null || item.getVodId() == null) return;
-        VideoActivity.start(this, item.getKey(), item.getVodId(), item.getVodName(), item.getVodPic());
-    }
 
-    @Override
-    public void onItemDelete(History item) {
-        if (item == null) return;
-        item.delete();
-        recreate();
-    }
 
-    @Override
-    public boolean onLongClick() {
-        return false;
-    }
 }

@@ -73,6 +73,12 @@ public class HistoryPresenter extends Presenter {
         History item = (History) object;
         boolean same = item.getVodName().equals(item.getVodRemarks());
         ViewHolder holder = (ViewHolder) viewHolder;
+        // ListRow 内部的 HorizontalGridView 会重置 LayoutParams，这里必须再设一次，
+        // 否则卡片宽度回到 wrap_content，多张卡片就互相重叠
+        holder.binding.getRoot().getLayoutParams().width = width;
+        holder.binding.getRoot().getLayoutParams().height = height;
+        holder.binding.image.getLayoutParams().height = height;
+        holder.binding.getRoot().requestLayout();
         setClickListener(holder.view, item);
         holder.binding.name.setText(item.getVodName());
         holder.binding.site.setText(item.getSiteName());

@@ -193,6 +193,15 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mBinding.recycler.setLayoutManager(manager);
         mAdapter = new HomeVodAdapter(this::onItemClick).size(Product.getSpec(style));
         mBinding.recycler.setAdapter(mAdapter);
+        // TVRecyclerView 没有 setVerticalSpacing，用 ItemDecoration 补行间距
+        mBinding.recycler.addItemDecoration(new androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(android.graphics.Rect outRect, android.view.View view,
+                                       androidx.recyclerview.widget.RecyclerView parent,
+                                       androidx.recyclerview.widget.RecyclerView.State state) {
+                outRect.bottom = ResUtil.dp2px(16);
+            }
+        });
         mBinding.recycler.setOnLoadMoreListener(this::onLoadMore);
     }
 
