@@ -104,14 +104,28 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
         TVGridLayoutManager manager = new TVGridLayoutManager(this, column);
         manager.setOrientation(RecyclerView.VERTICAL);
         mBinding.resultGrid.setLayoutManager(manager);
-        mVodAdapter = new CollectVodAdapter(this::onItemClick).size(Product.getSpec(Style.rect()));
+        mVodAdapter = new CollectVodAdapter(this::onItemClick);
         mBinding.resultGrid.setAdapter(mVodAdapter);
+        int gap = ResUtil.dp2px(12);
         mBinding.resultGrid.addItemDecoration(new RecyclerView.ItemDecoration() {
             @Override
             public void getItemOffsets(android.graphics.Rect outRect, android.view.View view,
                                        RecyclerView parent, RecyclerView.State state) {
-                outRect.bottom = ResUtil.dp2px(16);
+                outRect.left = gap / 2;
+                outRect.right = gap / 2;
+                outRect.bottom = gap;
             }
+        });
+        // Product.getSpec() 内部用的是屏幕宽度，这里右侧只占屏宽减去左侧站点列表，
+        // 必须等容器测量完按实际宽度重算卡片尺寸，否则卡片会挤在一起。
+        mBinding.resultGrid.post(() -> {
+            int width = mBinding.resultGrid.getWidth();
+            if (width <= 0) return;
+            int space = ResUtil.dp2px(32) + gap * (column - 1);
+            int cardWidth = (width - space) / column;
+            int cardHeight = (int) (cardWidth / 0.75f);
+            mVodAdapter.size(new int[]{cardWidth, cardHeight});
+            mVodAdapter.notifyDataSetChanged();
         });
     }
 
