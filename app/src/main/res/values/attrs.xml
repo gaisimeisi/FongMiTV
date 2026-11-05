@@ -6,12 +6,6 @@
         <attr name="maxWidth" format="dimension" />
         <attr name="maxHeight" format="dimension" />
     </declare-styleable>
-    <attr name="isNeedNotifyData" format="boolean" />
-    <attr name="drawChildOrderEnable" format="boolean" />
-    <attr name="handLastLeftKey" format="boolean" />
-    <attr name="handLastRightKey" format="boolean" />
-    <attr name="handLastUpKey" format="boolean" />
-    <attr name="handLastDownKey" format="boolean" />
     <declare-styleable name="TVRecyclerView">
         <attr name="isNeedNotifyData" format="boolean" />
         <attr name="drawChildOrderEnable" format="boolean" />
