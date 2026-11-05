@@ -85,6 +85,10 @@ jobs:
             --exclude='app/libs/' \
             --exclude='app/build.gradle' \
             --exclude='app/src/leanback/' \
+            --exclude='app/src/main/res/values/colors.xml' \
+            --exclude='app/src/main/res/values/ids.xml' \
+            --exclude='app/src/main/res/values/attrs.xml' \
+            --exclude='app/src/main/java/com/fongmi/android/tv/ui/custom/BaseInput.java' \
             --exclude='app/src/main/java/com/fongmi/android/tv/utils/Github.java' \
             --exclude='catvod/src/main/java/com/github/catvod/utils/RuntimeModule.java' \
             --exclude='catvod/src/main/java/com/github/catvod/net/OkHttp.java' \
