@@ -54,7 +54,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private int getCount() {
-        return list() ? 1 : Math.clamp((int) Math.ceil((double) adapter.getItemCount() / GRID_COUNT), 3, 5);
+        // 固定 4 列：之前按 ceil(count/10) 算，站源一多就变成 5 列，
+        // 每列太窄、长名字溢出到屏幕外。
+        return list() ? 1 : 4;
     }
 
     @Override

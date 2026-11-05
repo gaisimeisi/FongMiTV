@@ -58,12 +58,11 @@ public class HistoryActivity extends BaseActivity implements HistoryPresenter.On
     private void loadHistory() {
         List<History> items = queryHistory();
         if (items.isEmpty()) return;
-        int column = Math.max(1, Product.getColumn());
-        for (List<History> part : Lists.partition(items, column)) {
-            ArrayObjectAdapter row = new ArrayObjectAdapter(mPresenter);
-            row.addAll(0, new ArrayList<>(part));
-            mAdapter.add(new ListRow(row));
-        }
+        // 全部塞进一行：ListRow 内部是 HorizontalGridView，超出部分横向滚动，
+        // 不再按列数折行（原来 partition 成 5+2 两行，看着很散）。
+        ArrayObjectAdapter row = new ArrayObjectAdapter(mPresenter);
+        row.addAll(0, new ArrayList<>(items));
+        mAdapter.add(new ListRow(row));
     }
 
     private List<History> queryHistory() {
