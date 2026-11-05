@@ -85,6 +85,7 @@ jobs:
             --exclude='app/libs/' \
             --exclude='app/build.gradle' \
             --exclude='app/src/leanback/' \
+            --exclude='app/src/leanback/res/drawable-xxhdpi/vod_thumb2.webp' \
             --exclude='app/src/main/res/values/colors.xml' \
             --exclude='app/src/main/res/values/ids.xml' \
             --exclude='app/src/main/res/values/attrs.xml' \

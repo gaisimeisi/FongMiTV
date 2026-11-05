@@ -4,7 +4,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/app_background"
     android:orientation="vertical">
 
     <!-- 顶栏：Logo + 标题 + 日期（影视仓样式：日期带年月日） -->
