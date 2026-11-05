@@ -1,6 +1,5 @@
 package com.fongmi.android.tv.ui.dialog;
 
-import androidx.annotation.Nullable;
 
 import static com.fongmi.android.tv.ui.dialog.SettingPanelViews.applyEnabled;
 
@@ -44,22 +43,15 @@ final class VideoSettingPanel {
 
     private final DialogVideoSettingBinding binding;
     private final PlayerManager player;
-    @Nullable
-    private final MpvMotionSettingPanel motionPanel;
     private int currentTab;
     private boolean previewOriginal;
 
     VideoSettingPanel(DialogVideoSettingBinding binding, PlayerManager player) {
         this.binding = binding;
         this.player = player;
-        // [local-build] 上游 5.8.7 新增 mpv 运动补偿，依赖新版 lib-mpvplayer.aar 的
-        // addMotionInterpolationListener / setMotionInterpolationFps 等方法，我们的 aar 还没有，
-        // 且该功能在电视/车机上无实际意义，先禁用。
-        this.motionPanel = null;
     }
 
     void bind() {
-        if (motionPanel != null) motionPanel.bind();
         updatePresetCheck();
         bindSliders();
         SettingPanelViews.bindTabs(binding.tabGroup, getTabs(), this::showTab);
@@ -71,7 +63,6 @@ final class VideoSettingPanel {
     }
 
     void release() {
-        if (motionPanel != null) motionPanel.release();
         binding.tabGroup.clearOnButtonCheckedListeners();
         previewOriginal(false);
     }
