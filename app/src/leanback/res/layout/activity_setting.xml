@@ -25,6 +25,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -90,6 +91,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -155,6 +157,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusDown="@id/player"
@@ -222,6 +225,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/wall"
@@ -242,6 +246,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/wallRefresh"
@@ -271,6 +276,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -290,6 +296,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusDown="@id/doh"
@@ -331,6 +338,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -362,6 +370,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -402,6 +411,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">
@@ -421,6 +431,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:background="@drawable/selector_item"
+                android:layout_marginBottom="8dp"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="horizontal">

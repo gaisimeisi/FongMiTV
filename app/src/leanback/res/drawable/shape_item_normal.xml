@@ -1,10 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    设置项常态底：原来用 black_20（20% 黑），在纯黑背景上看不出问题；
+    换成壁纸背景后太透，文字直接浮在海报上、条目之间也没有分界，所以加深并加一层细描边。
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
 
-    <solid android:color="@color/black_20" />
+    <solid android:color="#CC12141A" />
 
-    <corners android:radius="4dp" />
+    <corners android:radius="6dp" />
+
+    <stroke
+        android:width="1dp"
+        android:color="#26FFFFFF" />
 
     <padding
         android:bottom="8dp"
