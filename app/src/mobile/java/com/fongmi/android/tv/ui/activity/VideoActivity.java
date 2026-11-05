@@ -163,7 +163,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
     }
 
     public static void cast(Activity activity, History history) {
-        start(activity, history.getSiteKey(), history.getVodId(), history.getVodName(), history.getVodPic());
+        history = history.copy();
+        history.setVodPic(ImgUtil.cache(history.getVodPic()));
+        Intent intent = new Intent(activity, VideoActivity.class);
+        intent.putExtra("key", history.getSiteKey()).putExtra("id", history.getVodId());
+        intent.putExtra("name", history.getVodName()).putExtra("history", history.toString());
+        putPic(intent, history.getVodPic());
+        activity.startActivity(intent);
     }
 
     public static void collect(Activity activity, String key, String id, String name, String pic) {
@@ -234,6 +240,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         return getKey().concat(AppDatabase.SYMBOL).concat(getId()).concat(AppDatabase.SYMBOL) + VodConfig.getCid();
     }
 
+    @Override
+    public History takeCastHistory() {
+        History history = History.objectFrom(getIntent().getStringExtra("history"));
+        getIntent().removeExtra("history");
+        return history;
+    }
+
     private Site getSite() {
         return VodConfig.get().getSite(getKey());
     }
@@ -294,7 +307,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        if (TextUtils.isEmpty(intent.getStringExtra("id")) || isSameVideo(intent)) return;
+        if (TextUtils.isEmpty(intent.getStringExtra("id")) || (isSameVideo(intent) && !intent.hasExtra("history"))) return;
         externalPlaybackCompleted = false;
         mBinding.swipeLayout.setRefreshing(true);
         saveHistory(true);
@@ -413,9 +426,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         mBinding.video.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> mPiP.update(this, view));
     }
 
-    private void setVideoView(boolean isInPictureInPictureMode) {
-        if (isInPictureInPictureMode) mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
-        else mBinding.video.setLayoutParams(mFrameParams);
+    private void setVideoView(boolean expanded) {
+        if (mAnimator.isRunning()) mAnimator.cancel();
+        if (expanded) {
+            mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
+        } else {
+            mBinding.video.setLayoutParams(mFrameParams);
+            if (!isWebPlaybackActive()) changeHeight(player().getPlayer().getVideoSize());
+        }
     }
 
     private void setAnimator() {
@@ -1168,7 +1186,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         if (isFullscreen()) return;
         setFullscreen(true);
         if (isLand() && !player().isPortrait()) setTransition();
-        mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
+        setVideoView(true);
         setRequestedOrientation(PlaybackOrientation.getEnterFullscreenOrientation(player().isPortrait()));
         mBinding.control.heading.setVisibility(View.VISIBLE);
         setRotate(player().isPortrait());
@@ -1186,7 +1204,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         setRequestedOrientation(PlaybackOrientation.getExitFullscreenOrientation(isPort()));
         mBinding.episode.postDelayed(() -> mBinding.episode.scrollToPosition(mEpisodeAdapter.getPosition()), 100);
         mBinding.control.heading.setVisibility(View.INVISIBLE);
-        mBinding.video.setLayoutParams(mFrameParams);
+        setVideoView(false);
         mInput.resetScale();
         App.post(mR3, 2000);
         setRotate(false);
@@ -1476,6 +1494,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
 
     @Override
     public void onDiscMenuStateChanged(@NonNull DiscMenuState state) {
+        if (!isNativePlaybackCurrent()) return;
         super.onDiscMenuStateChanged(state);
         updateDiscMenuVisibility();
         if (isDiscMenuTransition()) hideProgress();
@@ -1554,8 +1573,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
 
     @Override
     protected void onSizeChanged(VideoSize size) {
-        changeHeight();
-        checkOrientation();
+        changeHeight(size);
+        checkOrientation(size);
     }
 
     @Override
@@ -1588,29 +1607,31 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         return mVod == null ? C.TIME_UNSET : mVod.startPositionMs();
     }
 
-    private void checkOrientation() {
-        if (isFullscreen() && !isRotate() && player().isPortrait()) {
+    private void checkOrientation(VideoSize size) {
+        if (isFullscreen() && !isRotate() && size.height > size.width) {
             setRequestedOrientation(PlaybackOrientation.getPortraitVideoSizeOrientation());
             setRotate(true);
-        } else if (isFullscreen() && isRotate() && player().isLandscape()) {
+        } else if (isFullscreen() && isRotate() && size.width > size.height) {
             setRequestedOrientation(PlaybackOrientation.getLandscapeVideoSizeOrientation());
             setRotate(false);
         }
     }
 
-    private void changeHeight() {
+    private void changeHeight(VideoSize size) {
         if (isLand() || isFullscreen() || isInPictureInPictureMode()) return;
-        int videoWidth = player().getVideoWidth();
-        int videoHeight = player().getVideoHeight();
+        int videoWidth = size.width;
+        int videoHeight = size.height;
         if (videoWidth == 0 || videoHeight == 0) return;
-        int viewWidth = ResUtil.getScreenWidth();
+        int screenWidth = ResUtil.getScreenWidth();
+        int screenHeight = ResUtil.getScreenHeight();
+        int viewWidth = Math.min(screenWidth, screenHeight);
         int minHeight = ResUtil.dp2px(150);
-        int maxHeight = ResUtil.getScreenHeight() / 2;
+        int maxHeight = Math.max(screenWidth, screenHeight) / 2;
         int calculated = (int) (viewWidth * ((float) videoHeight / videoWidth));
         int finalHeight = Math.clamp(calculated, minHeight, Math.max(minHeight, maxHeight));
-        if (finalHeight == mBinding.video.getHeight()) return;
         if (mAnimator.isRunning()) mAnimator.cancel();
-        mAnimator.setIntValues(mBinding.video.getHeight(), finalHeight);
+        if (finalHeight == mFrameParams.height) return;
+        mAnimator.setIntValues(mFrameParams.height, finalHeight);
         mAnimator.setDuration(300);
         mAnimator.start();
     }

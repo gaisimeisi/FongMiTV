@@ -148,7 +148,9 @@ public final class MpvUtil {
     }
 
     static void addMotionOptions(MpvPlayerConfig.Builder builder) {
-        // [local-build] 我们的 lib-mpvplayer.aar 还没 setMotionInterpolationFps，跳过运动补偿配置
+        int fps = PlayerSetting.getMpvMotionFps();
+        if (fps == 0 || !isVulkanSupported()) return;
+        builder.setMotionInterpolationFps(fps);
     }
 
     public static List<MpvScripts.Item> readScripts() {
