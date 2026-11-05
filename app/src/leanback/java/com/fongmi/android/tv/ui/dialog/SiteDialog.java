@@ -48,15 +48,16 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private boolean list() {
-        // 只按用户设置决定；原来还有 `|| adapter.getItemCount() < GRID_COUNT`，
-        // 导致站点少于 10 个时永远退化成一行一个（影视仓是同款数据却能多列）
-        return Setting.getSiteMode() == 0;
+        // 固定用网格（影视仓样式：4 列一行）。
+        // 原来读 Setting.getSiteMode()，但设备上存的旧值是 0（列表），
+        // 改默认值也没用 —— 老设备已经存过 site_mode=0，所以直接不读这个设置。
+        return false;
     }
 
     private int getCount() {
         // 固定 4 列：之前按 ceil(count/10) 算，站源一多就变成 5 列，
         // 每列太窄、长名字溢出到屏幕外。
-        return list() ? 1 : 4;
+        return 4;
     }
 
     @Override
@@ -106,7 +107,6 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void setMode() {
-        if (adapter.getItemCount() < GRID_COUNT) Setting.putSiteMode(0);
         binding.mode.setEnabled(adapter.getItemCount() >= GRID_COUNT);
         binding.mode.setImageResource(list() ? R.drawable.ic_site_grid : R.drawable.ic_site_list);
         binding.mode.setContentDescription(getString(list() ? R.string.dialog_action_grid : R.string.dialog_action_list));
