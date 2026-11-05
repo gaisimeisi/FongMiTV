@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Launcher 前景：深色圆底 + 青绿播放键 + 底部三条渐隐横条（暗示影视列表）。
-    adaptive icon 规范：viewport 108x108，内容集中在中央 66dp 安全区内。
+    Launcher 前景：青绿播放三角 + 底部细线，和 ic_splash_logo 保持一致。
+    adaptive icon 安全区：中央 66dp。
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -9,36 +9,17 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 外圈柔光环 -->
-    <path
-        android:pathData="M54,45 m-25,0 a25,25 0 1,0 50,0 a25,25 0 1,0 -50,0"
-        android:strokeWidth="2"
-        android:strokeColor="#4CF5CB"
-        android:strokeAlpha="0.35"
-        android:fillColor="#00000000" />
-
-    <!-- 深色圆底 -->
-    <path
-        android:pathData="M54,45 m-20,0 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0"
-        android:fillColor="#0E2A33" />
-
     <!-- 播放三角 -->
     <path
-        android:pathData="M49.5,36.5 L62.5,45 L49.5,53.5 Z"
+        android:pathData="M42,33 L75,54 L42,75 Z"
         android:fillColor="#4CF5CB" />
 
-    <!-- 底部三条横条：象征剧集列表 -->
+    <!-- 底部细线 -->
     <path
-        android:pathData="M34,70 h40 v4 h-40 z"
-        android:fillColor="#7FE8FF"
-        android:fillAlpha="0.85" />
-    <path
-        android:pathData="M34,77 h28 v4 h-28 z"
-        android:fillColor="#7FE8FF"
-        android:fillAlpha="0.55" />
-    <path
-        android:pathData="M34,84 h18 v4 h-18 z"
-        android:fillColor="#7FE8FF"
-        android:fillAlpha="0.3" />
-
+        android:pathData="M32,83 L76,83"
+        android:strokeWidth="3"
+        android:strokeColor="#7FDCFF"
+        android:strokeAlpha="0.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
 </vector>
