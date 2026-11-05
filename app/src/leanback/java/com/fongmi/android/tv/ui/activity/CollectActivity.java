@@ -134,7 +134,9 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
             mAll.add(vod);
             mAllKeys.add(key);
         }
-        if (mAdapter.getItemCount() == 1) showAll();
+        // 当前选中的是「全部」时实时刷新右侧；
+        // 原来写成 getItemCount()==1，但上面 add(collect) 已经让数量变成 2，永远不成立 → 右侧一直空白
+        if (mAdapter.getSelected() == 0) showAll();
     }
 
     private void saveKeyword() {

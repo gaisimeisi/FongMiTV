@@ -46,6 +46,10 @@ public class CollectAdapter extends RecyclerView.Adapter<CollectAdapter.ViewHold
         return mItems.get(position);
     }
 
+    public int getSelected() {
+        return selected;
+    }
+
     public void setSelected(int position) {
         int old = selected;
         selected = position;
