@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    搜索结果页：影视仓风格 —— 左侧纵向站点列表，右侧统一结果网格。
+-->
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -13,27 +16,40 @@
         android:layout_marginStart="24dp"
         android:layout_marginTop="24dp"
         android:layout_marginEnd="24dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="12dp"
         android:singleLine="true"
         android:textColor="@color/white"
         android:textSize="24sp"
         tools:text="@string/collect_result" />
 
-    <androidx.leanback.widget.HorizontalGridView
-        android:id="@+id/recycler"
+    <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        app:focusOutEnd="false"
-        app:focusOutFront="false" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
 
-    <com.fongmi.android.tv.ui.custom.CustomViewPager
-        android:id="@+id/pager"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        <!-- 左侧：站点列表（全部 + 各站点） -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/siteList"
+            android:layout_width="220dp"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="24dp" />
+
+        <!-- 右侧：结果网格 -->
+        <com.skw.library.TVRecyclerView
+            android:id="@+id/resultGrid"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingStart="8dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="24dp" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
 
 </androidx.appcompat.widget.LinearLayoutCompat>
-

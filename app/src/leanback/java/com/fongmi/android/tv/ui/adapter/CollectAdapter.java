@@ -12,12 +12,23 @@ import com.fongmi.android.tv.databinding.AdapterTypeBinding;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 搜索结果页左侧的站点列表（纵向）。
+ * 第一项是「全部」，后面是各站点，后面跟各自的结果数量。
+ */
 public class CollectAdapter extends RecyclerView.Adapter<CollectAdapter.ViewHolder> {
 
-    private final List<Collect> mItems;
+    public interface OnClickListener {
+        void onItemClick(Collect item, int position);
+    }
 
-    public CollectAdapter() {
-        mItems = new ArrayList<>();
+    private final List<Collect> mItems;
+    private final OnClickListener listener;
+    private int selected = 0;
+
+    public CollectAdapter(OnClickListener listener) {
+        this.listener = listener;
+        this.mItems = new ArrayList<>();
     }
 
     public void add(Collect item) {
@@ -27,11 +38,19 @@ public class CollectAdapter extends RecyclerView.Adapter<CollectAdapter.ViewHold
 
     public void clear() {
         mItems.clear();
+        selected = 0;
         notifyDataSetChanged();
     }
 
     public Collect get(int position) {
         return mItems.get(position);
+    }
+
+    public void setSelected(int position) {
+        int old = selected;
+        selected = position;
+        notifyItemChanged(old);
+        notifyItemChanged(position);
     }
 
     @Override
@@ -48,8 +67,13 @@ public class CollectAdapter extends RecyclerView.Adapter<CollectAdapter.ViewHold
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Collect item = mItems.get(position);
-        holder.binding.getRoot().setOnClickListener(null);
-        holder.binding.text.setText(item.getSite().getName());
+        holder.binding.getRoot().setSelected(position == selected);
+        holder.binding.getRoot().setOnClickListener(v -> {
+            if (listener != null) listener.onItemClick(item, holder.getBindingAdapterPosition());
+        });
+        String name = item.getSite() == null ? "全部" : item.getSite().getName();
+        int count = item.getList() == null ? 0 : item.getList().size();
+        holder.binding.text.setText(count > 0 ? name + " (" + count + ")" : name);
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {

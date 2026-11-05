@@ -3,54 +3,58 @@ package com.fongmi.android.tv.ui.activity;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Parcelable;
-import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentStatePagerAdapter;
-import androidx.leanback.widget.OnChildViewHolderSelectedListener;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
-import androidx.viewpager.widget.ViewPager;
 
 import com.fongmi.android.tv.App;
+import com.fongmi.android.tv.Product;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Collect;
 import com.fongmi.android.tv.bean.Site;
+import com.fongmi.android.tv.bean.Style;
+import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.ActivityCollectBinding;
 import com.fongmi.android.tv.model.SiteViewModel;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.adapter.CollectAdapter;
+import com.fongmi.android.tv.ui.adapter.CollectVodAdapter;
 import com.fongmi.android.tv.ui.base.BaseActivity;
-import com.fongmi.android.tv.ui.fragment.CollectFragment;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.gson.reflect.TypeToken;
+import com.skw.library.layoutmanager.TVGridLayoutManager;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class CollectActivity extends BaseActivity {
+/**
+ * 搜索结果页：影视仓风格 —— 左侧纵向站点列表，右侧统一结果网格。
+ * 默认「全部」显示所有站点的结果，点某个站点只显示该站结果。
+ */
+public class CollectActivity extends BaseActivity implements CollectAdapter.OnClickListener {
 
     private ActivityCollectBinding mBinding;
     private CollectAdapter mAdapter;
+    private CollectVodAdapter mVodAdapter;
     private SiteViewModel mViewModel;
     private List<Site> mSites;
-    private View mOldView;
+
+    /** 每个站点的搜索结果 */
+    private final List<Collect> mCollects = new ArrayList<>();
+
+    /** 「全部」的结果（各站结果合并） */
+    private final List<Vod> mAll = new ArrayList<>();
+    private final List<String> mAllKeys = new ArrayList<>();
 
     public static void start(Activity activity, String keyword) {
         Intent intent = new Intent(activity, CollectActivity.class);
         intent.putExtra("keyword", keyword);
         activity.startActivity(intent);
-    }
-
-    private CollectFragment getFragment() {
-        return (CollectFragment) mBinding.pager.getAdapter().instantiateItem(mBinding.pager, 0);
     }
 
     private String getKeyword() {
@@ -66,52 +70,71 @@ public class CollectActivity extends BaseActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         getIntent().putExtras(intent);
-        mAdapter.clear();
-        setPager();
+        reset();
         search();
     }
 
     @Override
     protected void initView(Bundle savedInstanceState) {
-        setRecyclerView();
+        setSiteList();
+        setResultGrid();
         setViewModel();
         saveKeyword();
         setSites();
-        setPager();
         search();
     }
 
-    @Override
-    protected void initEvent() {
-        mBinding.pager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-            @Override
-            public void onPageSelected(int position) {
-                mBinding.recycler.setSelectedPosition(position);
-                mBinding.recycler.requestFocus();
-            }
-        });
-        mBinding.recycler.addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
-            @Override
-            public void onChildViewHolderSelected(@NonNull RecyclerView parent, @Nullable RecyclerView.ViewHolder child, int position, int subposition) {
-                onChildSelected(child);
-            }
-        });
+    private void reset() {
+        mCollects.clear();
+        mAll.clear();
+        mAllKeys.clear();
+        if (mAdapter != null) mAdapter.clear();
+        if (mVodAdapter != null) mVodAdapter.clear();
     }
 
-    private void setRecyclerView() {
-        mBinding.recycler.setHorizontalSpacing(ResUtil.dp2px(16));
-        mBinding.recycler.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
-        mBinding.recycler.setAdapter(mAdapter = new CollectAdapter());
+    /** 左侧：站点列表（纵向） */
+    private void setSiteList() {
+        mBinding.siteList.setLayoutManager(new LinearLayoutManager(this));
+        mBinding.siteList.setAdapter(mAdapter = new CollectAdapter(this));
+    }
+
+    /** 右侧：结果网格，和首页同款 */
+    private void setResultGrid() {
+        int column = Math.max(1, Product.getColumn());
+        TVGridLayoutManager manager = new TVGridLayoutManager(this, column);
+        manager.setOrientation(RecyclerView.VERTICAL);
+        mBinding.resultGrid.setLayoutManager(manager);
+        mVodAdapter = new CollectVodAdapter(this::onItemClick).size(Product.getSpec(Style.rect()));
+        mBinding.resultGrid.setAdapter(mVodAdapter);
+        mBinding.resultGrid.addItemDecoration(new RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(android.graphics.Rect outRect, android.view.View view,
+                                       RecyclerView parent, RecyclerView.State state) {
+                outRect.bottom = ResUtil.dp2px(16);
+            }
+        });
     }
 
     private void setViewModel() {
         mViewModel = new ViewModelProvider(this).get(SiteViewModel.class);
         mViewModel.getSearch().observe(this, result -> {
             if (result.getList().isEmpty()) return;
-            getFragment().addVideo(result.getList());
-            mAdapter.add(Collect.create(result.getList()));
-            mBinding.pager.getAdapter().notifyDataSetChanged();
+            onSearchResult(result.getList());
         });
+    }
+
+    /** 每个站点回调一次结果 */
+    private void onSearchResult(List<Vod> list) {
+        Collect collect = Collect.create(list);
+        mCollects.add(collect);
+        mAdapter.add(collect);
+        // 同步到「全部」
+        String key = collect.getSite().getKey();
+        for (Vod vod : list) {
+            mAll.add(vod);
+            mAllKeys.add(key);
+        }
+        if (mAdapter.getItemCount() == 1) showAll();
     }
 
     private void saveKeyword() {
@@ -126,67 +149,40 @@ public class CollectActivity extends BaseActivity {
         mSites = VodConfig.get().getSites().stream().filter(Site::isSearchable).toList();
     }
 
-    private void setPager() {
-        mBinding.pager.setAdapter(new PageAdapter(getSupportFragmentManager()));
-    }
-
     private void search() {
-        if (mSites.isEmpty()) return;
+        if (mSites == null || mSites.isEmpty()) return;
         mAdapter.add(Collect.all());
-        mBinding.pager.getAdapter().notifyDataSetChanged();
         mBinding.result.setText(getString(R.string.collect_result, getKeyword()));
         mViewModel.searchContent(mSites, getKeyword(), false);
     }
 
-    private void onChildSelected(@Nullable RecyclerView.ViewHolder child) {
-        if (mOldView != null) mOldView.setSelected(false);
-        if ((mOldView = child != null ? child.itemView : null) == null) return;
-        mOldView.setSelected(true);
-        App.post(mRunnable, 100);
+    /** 点左侧站点：0 是「全部」，其它是具体站点 */
+    @Override
+    public void onItemClick(Collect item, int position) {
+        mAdapter.setSelected(position);
+        if (position == 0) {
+            showAll();
+            return;
+        }
+        Collect collect = position - 1 < mCollects.size() ? mCollects.get(position - 1) : null;
+        if (collect == null) return;
+        List<String> keys = new ArrayList<>();
+        String key = collect.getSite().getKey();
+        for (int i = 0; i < collect.getList().size(); i++) keys.add(key);
+        mVodAdapter.setItems(collect.getList(), keys);
     }
 
-    private final Runnable mRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mBinding.pager.setCurrentItem(mBinding.recycler.getSelectedPosition());
-        }
-    };
+    private void showAll() {
+        mVodAdapter.setItems(mAll, mAllKeys);
+    }
+
+    private void onItemClick(Vod item, String siteKey) {
+        VideoActivity.start(this, siteKey, item.getId(), item.getName(), item.getPic());
+    }
 
     @Override
     protected void onBackInvoked() {
         mViewModel.stopSearch();
         super.onBackInvoked();
-    }
-
-    class PageAdapter extends FragmentStatePagerAdapter {
-
-        public PageAdapter(@NonNull FragmentManager fm) {
-            super(fm);
-        }
-
-        @NonNull
-        @Override
-        public Fragment getItem(int position) {
-            return CollectFragment.newInstance(getKeyword(), mAdapter.get(position));
-        }
-
-        @Override
-        public int getCount() {
-            return mAdapter.getItemCount();
-        }
-
-        @Override
-        public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
-        }
-
-        @Nullable
-        @Override
-        public Parcelable saveState() {
-            return null;
-        }
-
-        @Override
-        public void restoreState(@Nullable Parcelable state, @Nullable ClassLoader loader) {
-        }
     }
 }
