@@ -92,7 +92,10 @@ public class SiteApi {
             SpiderDebug.log("homeVideo", video);
             result = Result.fromJson(home);
             List<Vod> list = Result.fromJson(video).getList();
-            if (!list.isEmpty()) result.setList(list);
+            // 原来是无条件覆盖：站点只要 homeVideoContent 返回非空，就把 homeContent 的列表整个换掉，
+            // 而很多站点 homeVideoContent 只给几条 → 首页内容变少。
+            // 改成只在 homeContent 没给内容时才用它兜底。
+            if (result.getList().isEmpty() && !list.isEmpty()) result.setList(list);
         } else if (site.getType() == 4) {
             ArrayMap<String, String> params = new ArrayMap<>();
             params.put("filter", "true");

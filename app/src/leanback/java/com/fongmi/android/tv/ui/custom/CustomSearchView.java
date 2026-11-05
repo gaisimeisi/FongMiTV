@@ -35,4 +35,16 @@ public class CustomSearchView extends CustomEditText {
         if (gainFocus) startAnimation(flicker);
         else clearAnimation();
     }
+
+    @Override
+    public boolean onTouchEvent(android.view.MotionEvent event) {
+        // TV 上输入框第一次点击往往只是「聚焦」，光标没进去，用户得点第二次。
+        // 这里在 DOWN 时主动抢焦点并把光标移到末尾，一次点击即可输入。
+        if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+            if (!hasFocus()) requestFocus();
+            if (getText() != null) setSelection(getText().length());
+            return true;
+        }
+        return super.onTouchEvent(event);
+    }
 }
