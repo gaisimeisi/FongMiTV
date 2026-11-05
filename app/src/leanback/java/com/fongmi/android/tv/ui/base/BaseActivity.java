@@ -43,7 +43,14 @@ public abstract class BaseActivity extends AppCompatActivity {
     public void setContentView(View view) {
         super.setContentView(view);
         if (!customWall()) return;
-        ((ViewGroup) findViewById(android.R.id.content)).addView(new CustomWallView(this, null), 0, new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+        ViewGroup content = (ViewGroup) findViewById(android.R.id.content);
+        // 壁纸放最底层（index 0）
+        content.addView(new CustomWallView(this, null), 0, new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+        // 壁纸之上、内容之下加一层半透明遮罩：
+        // 不加的话壁纸上的海报细节会直接透到设置项/文字后面，导致文字看不清、分隔线消失（影视仓也有类似压暗但更暗）
+        View scrim = new View(this);
+        scrim.setBackgroundColor(0xCC0E1013);
+        content.addView(scrim, 1, new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
     }
 
     protected FragmentActivity getActivity() {
