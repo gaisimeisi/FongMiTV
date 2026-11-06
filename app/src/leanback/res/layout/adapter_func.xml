@@ -2,21 +2,21 @@
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
-    android:layout_height="48dp"
+    android:layout_height="38dp"
     android:layout_marginEnd="8dp"
     android:background="@drawable/selector_func_item"
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:gravity="center"
     android:orientation="horizontal"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp">
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp">
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/icon"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
-        android:layout_marginEnd="8dp"
+        android:layout_width="19dp"
+        android:layout_height="19dp"
+        android:layout_marginEnd="6dp"
         tools:src="@drawable/ic_home_vod" />
 
     <com.google.android.material.textview.MaterialTextView
@@ -24,7 +24,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="@color/white"
-        android:textSize="18sp"
+        android:textSize="15sp"
         tools:text="历史" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

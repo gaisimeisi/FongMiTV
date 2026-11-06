@@ -34,6 +34,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
 
     public SiteDialog search() {
         type = 1;
+        // 底部操作区（全选 / 全部取消 / 可搜索筛选 / 可换源筛选）默认是 GONE，
+        // 只有调用 action() 才显示。搜索页只调了 search()，所以这几个按钮一直看不到。
+        action = true;
         return this;
     }
 

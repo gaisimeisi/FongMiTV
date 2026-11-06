@@ -1,14 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    功能图标常态底：影视仓那排是「深色半透明 + 细白边」的胶囊，不是白色实底。
-    之前用 #40FFFFFF 在深色壁纸上会变成一排灰扑扑的大块，很重。
--->
+<!-- 功能图标常态底：深色半透明胶囊，比之前更扁更轻 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
 
     <solid android:color="#8C0E1013" />
 
-    <corners android:radius="22dp" />
+    <corners android:radius="19dp" />
 
     <stroke
         android:width="1dp"
