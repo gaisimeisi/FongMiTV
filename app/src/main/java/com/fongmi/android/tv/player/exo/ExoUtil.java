@@ -90,6 +90,16 @@ public final class ExoUtil {
         return new ExoRenderersFactory(audioProcessor, secondaryTextOutput, libassPlaybackSession, decoderManager);
     }
 
+    /**
+     * 上游 5.8.7 新增的 5 参重载（多了 motionFps，用于 FFmpeg 运动补偿渲染器）。
+     * 我们的 media3 aar 是从 release-1.11.0-fongmi 编译的，不含
+     * androidx.media3.decoder.ffmpeg.FfmpegMotionRenderersFactory，
+     * 所以这里忽略 motionFps，走普通 RenderersFactory。
+     */
+    static RenderersFactory buildRenderersFactory(AudioProcessor audioProcessor, androidx.media3.exoplayer.text.SecondaryTextOutput secondaryTextOutput, LibassPlaybackSession libassPlaybackSession, DecoderManager decoderManager, int motionFps) {
+        return new ExoRenderersFactory(audioProcessor, secondaryTextOutput, libassPlaybackSession, decoderManager);
+    }
+
     private static AudioSink buildAudioSink(Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams, @Nullable AudioProcessor audioProcessor) {
         DefaultAudioSink.Builder builder = new DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput).setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams);
         if (!DecodeSetting.isAudioPassThrough()) builder.setAudioOutputProvider(new AudioTrackAudioOutputProvider.Builder(null).build());
