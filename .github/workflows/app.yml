@@ -63,16 +63,26 @@ jobs:
           fi
           ls "$SDK/platforms"
 
-      - name: Generate debug keystore
+      - name: Prepare debug keystore
         run: |
           mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+          # 关键：用仓库里固定的 keystore。
+          # 原先是「文件不存在就现场生成」，但 Actions 每次都是全新 runner，
+          # 于是每次构建都会生成一对新的 RSA 密钥 —— 主题名一样、公钥指纹不同，
+          # 装到设备上就会报 INSTALL_FAILED_UPDATE_INCOMPATIBLE，无法覆盖安装。
+          if [ -f keystore/debug.keystore ]; then
+            cp keystore/debug.keystore "$HOME/.android/debug.keystore"
+            echo "使用仓库内固定 keystore，签名保持稳定"
+          else
+            echo "::warning::keystore/debug.keystore 缺失，本次将生成临时签名（后续无法覆盖安装）"
             keytool -genkeypair -v \
               -keystore "$HOME/.android/debug.keystore" \
               -storepass android -keypass android \
               -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
+          echo "--- 证书指纹 ---"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android 2>/dev/null | grep -E "SHA1:|SHA256:" | head -2
 
       - name: Generate local.properties
         run: |

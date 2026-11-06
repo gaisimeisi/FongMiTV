@@ -46,6 +46,9 @@ public abstract class BaseInput<T extends BaseInput.Listener> extends GestureDet
             if (dx * dx + dy * dy > touchSlopSquared) tapMoved = true;
         }
         boolean handled = detector.onTouchEvent(event);
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            listener.onScrollEnd();
+        }
         if (action == MotionEvent.ACTION_UP && isAdditionalSeekTap(event)) {
             if (listener.onSeekTap(event.getX())) {
                 seekTapUntil = event.getEventTime() + SEEK_TAP_TIMEOUT_MS;
@@ -171,6 +174,20 @@ public abstract class BaseInput<T extends BaseInput.Listener> extends GestureDet
         /** 触摸滑动的位移回调（右/下为正），返回 true 表示已消费 */
         default boolean onScroll(float dx, float dy) {
             return false;
+        }
+
+        /** 左半屏纵向滑动：调亮度（上滑为正） */
+        default boolean onScrollBrightness(float dy) {
+            return false;
+        }
+
+        /** 右半屏纵向滑动：调音量（上滑为正） */
+        default boolean onScrollVolume(float dy) {
+            return false;
+        }
+
+        /** 手指抬起或取消：结束本次滑动（用于收起手势提示） */
+        default void onScrollEnd() {
         }
     }
 }

@@ -40,7 +40,13 @@ public final class VodInput extends BaseInput<VodInput.Listener> {
     public boolean onScroll(@NonNull MotionEvent e1, @NonNull MotionEvent e2, float distanceX, float distanceY) {
         if (!fullscreen) return false;
         // distanceX/Y 是「手指移动的反向」，取负还原成手指方向
-        return listener.onScroll(-distanceX, -distanceY);
+        float dx = -distanceX;
+        float dy = -distanceY;
+        // 横向为主：调进度
+        if (Math.abs(dx) > Math.abs(dy)) return listener.onScroll(dx, dy);
+        // 纵向为主：左半屏调亮度，右半屏调音量
+        boolean left = e1 != null && e1.getX() < com.fongmi.android.tv.utils.ResUtil.getScreenWidth() * 0.5f;
+        return left ? listener.onScrollBrightness(dy) : listener.onScrollVolume(dy);
     }
 
     private boolean isSupportedKey(KeyEvent event) {

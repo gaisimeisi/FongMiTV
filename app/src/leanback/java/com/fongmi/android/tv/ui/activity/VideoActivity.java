@@ -89,6 +89,7 @@ import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.utils.TimeFormat;
 import com.fongmi.android.tv.utils.PartUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Sniffer;
@@ -1122,25 +1123,28 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     private void showInfo() {
-        mBinding.widget.top.setVisibility(View.VISIBLE);
         mBinding.widget.center.setVisibility(View.VISIBLE);
         setSeekPreviewTime(mBinding.widget.duration, mBinding.widget.position, 0);
     }
 
     private void hideInfo() {
-        mBinding.widget.top.setVisibility(View.GONE);
+        // 顶部标题栏不在这里隐藏：它跟随控制栏显隐（showControl/hideControl），
+        // 否则播放过程中一旦 hideCenter，标题就再也不会出现。
         mBinding.widget.center.setVisibility(View.GONE);
     }
 
     private void showControl(View view) {
         updateDiscMenuVisibility();
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
+        // 顶部标题栏跟控制栏一起出现（用户反馈点击后只有底部控制栏、上面没有片名）
+        mBinding.widget.top.setVisibility(View.VISIBLE);
         view.requestFocus();
         setR1Callback();
     }
 
     private void hideControl() {
         mBinding.control.getRoot().setVisibility(View.GONE);
+        mBinding.widget.top.setVisibility(View.GONE);
         App.removeCallbacks(mR1);
     }
 
@@ -1621,20 +1625,54 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     private float scrollX;
     private float scrollY;
 
+    /** 手指抬起后，手势提示延迟多久收起 */
+    private static final long GESTURE_TIP_HIDE_DELAY = 600;
+    /** 本次手势要跳到的目标位置（松手才真正 seek） */
+    private long gestureSeekTarget;
+    private boolean gestureSeeking;
+
     @Override
     public boolean onScroll(float dx, float dy) {
         if (!isFullscreen()) return false;
-        if (Math.abs(dx) > Math.abs(dy)) {
-            scrollX += dx;
-            if (Math.abs(scrollX) >= SEEK_STEP_PX) {
-                long steps = (long) (scrollX / SEEK_STEP_PX);
-                long delta = steps * 5_000L;
-                long target = Math.max(0, player().getPlayer().getCurrentPosition() + delta);
-                player().seekTo(target);
-                scrollX -= steps * SEEK_STEP_PX;
-            }
-            return true;
+        scrollX += dx;
+        if (Math.abs(scrollX) >= SEEK_STEP_PX) {
+            long steps = (long) (scrollX / SEEK_STEP_PX);
+            long delta = steps * 5_000L;
+            long base = gestureSeeking ? gestureSeekTarget : player().getPlayer().getCurrentPosition();
+            long duration = getPlayerDuration();
+            long target = base + delta;
+            if (duration > 0) target = Math.min(duration, target);
+            gestureSeekTarget = Math.max(0, target);
+            gestureSeeking = true;
+            scrollX -= steps * SEEK_STEP_PX;
+            showGestureSeek(gestureSeekTarget);
         }
+        return true;
+    }
+
+    /** 左半屏纵向滑动：调亮度 */
+    @Override
+    public boolean onScrollBrightness(float dy) {
+        if (!isFullscreen()) return false;
+        scrollY += dy;
+        if (Math.abs(scrollY) >= VOLUME_STEP_PX) {
+            android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+            float current = lp.screenBrightness < 0 ? getSystemBrightness() : lp.screenBrightness;
+            // 手指上滑（dy<0 → scrollY<0）增大亮度
+            float target = current + (scrollY < 0 ? 0.04f : -0.04f);
+            target = Math.max(0.05f, Math.min(1f, target));
+            lp.screenBrightness = target;
+            getWindow().setAttributes(lp);
+            scrollY -= Math.signum(scrollY) * VOLUME_STEP_PX;
+            showGestureBright((int) (target * 100));
+        }
+        return true;
+    }
+
+    /** 右半屏纵向滑动：调音量 */
+    @Override
+    public boolean onScrollVolume(float dy) {
+        if (!isFullscreen()) return false;
         scrollY += dy;
         if (Math.abs(scrollY) >= VOLUME_STEP_PX) {
             android.media.AudioManager am = (android.media.AudioManager) getSystemService(android.content.Context.AUDIO_SERVICE);
@@ -1643,11 +1681,78 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
                 int cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
                 // 手指上滑（dy<0）增大音量
                 int step = scrollY < 0 ? 1 : -1;
-                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.max(0, Math.min(max, cur + step)), 0);
+                int target = Math.max(0, Math.min(max, cur + step));
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, target, 0);
+                showGestureVolume(max > 0 ? target * 100 / max : 0);
             }
             scrollY -= Math.signum(scrollY) * VOLUME_STEP_PX;
         }
         return true;
+    }
+
+    /** 松手：提交进度跳转并收起手势提示 */
+    @Override
+    public void onScrollEnd() {
+        if (gestureSeeking) {
+            player().seekTo(gestureSeekTarget);
+            gestureSeeking = false;
+        }
+        scrollX = 0;
+        scrollY = 0;
+        App.post(this::hideGestureTips, GESTURE_TIP_HIDE_DELAY);
+    }
+
+    private void hideGestureTips() {
+        mBinding.widget.gestureSeek.setVisibility(View.GONE);
+        mBinding.widget.gestureBright.setVisibility(View.GONE);
+        mBinding.widget.gestureVolume.setVisibility(View.GONE);
+    }
+
+    /** 进度提示：显示「目标时间 / 总时长」和快进/快退图标 */
+    private void showGestureSeek(long target) {
+        mBinding.widget.gestureBright.setVisibility(View.GONE);
+        mBinding.widget.gestureVolume.setVisibility(View.GONE);
+        mBinding.widget.gestureSeek.setVisibility(View.VISIBLE);
+        long duration = getPlayerDuration();
+        long now = player().getPlayer().getCurrentPosition();
+        mBinding.widget.gestureSeekIcon.setImageResource(target >= now ? R.drawable.ic_widget_forward : R.drawable.ic_widget_rewind);
+        String text = TimeFormat.format(target);
+        if (duration > 0) text = text + " / " + TimeFormat.format(duration);
+        mBinding.widget.gestureSeekTime.setText(text);
+    }
+
+    private void showGestureBright(int percent) {
+        mBinding.widget.gestureSeek.setVisibility(View.GONE);
+        mBinding.widget.gestureVolume.setVisibility(View.GONE);
+        mBinding.widget.gestureBright.setVisibility(View.VISIBLE);
+        mBinding.widget.gestureBrightProgress.setProgress(percent);
+        mBinding.widget.gestureBrightText.setText(percent + "%");
+        mBinding.widget.gestureBrightIcon.setImageResource(
+                percent >= 66 ? R.drawable.ic_widget_bright_high
+                        : percent >= 33 ? R.drawable.ic_widget_bright_medium
+                        : R.drawable.ic_widget_bright_low);
+    }
+
+    private void showGestureVolume(int percent) {
+        mBinding.widget.gestureSeek.setVisibility(View.GONE);
+        mBinding.widget.gestureBright.setVisibility(View.GONE);
+        mBinding.widget.gestureVolume.setVisibility(View.VISIBLE);
+        mBinding.widget.gestureVolumeProgress.setProgress(percent);
+        mBinding.widget.gestureVolumeText.setText(percent + "%");
+        mBinding.widget.gestureVolumeIcon.setImageResource(
+                percent >= 66 ? R.drawable.ic_widget_volume_high
+                        : percent >= 33 ? R.drawable.ic_widget_volume_medium
+                        : R.drawable.ic_widget_volume_low);
+    }
+
+    /** 读取系统当前亮度（0~1），首次手势时作基准 */
+    private float getSystemBrightness() {
+        try {
+            int value = android.provider.Settings.System.getInt(getContentResolver(), android.provider.Settings.System.SCREEN_BRIGHTNESS);
+            return Math.max(0.05f, Math.min(1f, value / 255f));
+        } catch (Throwable e) {
+            return 0.5f;
+        }
     }
 
     @Override
