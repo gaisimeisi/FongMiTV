@@ -1099,7 +1099,14 @@ public class PlayerManager implements ParseCallback {
             Player player = manager.player;
             if (player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) player.setPlaybackParameters(playbackParameters);
             if (player.isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE)) player.setRepeatMode(repeatMode);
-            if (!Float.isNaN(volume) && player.isCommandAvailable(Player.COMMAND_SET_VOLUME)) player.setVolume(volume);
+            if (player.isCommandAvailable(Player.COMMAND_SET_VOLUME)) {
+                // 切换播放引擎时会先用旧 player 抓一份快照再恢复。
+                // 如果旧 player 已经释放，getVolume() 会返回 0，恢复后新播放器就被设成 0，
+                // 表现就是「切了一下引擎，之后一直没声音」，而且这个 0 还会被下次快照继续带下去。
+                // 这里对 0 做兜底：只在快照音量有效且非 0 时恢复，否则保持新播放器的默认满音量。
+                float target = (Float.isNaN(volume) || volume <= 0.001f) ? 1f : volume;
+                player.setVolume(target);
+            }
             if (audioOffsetMs != C.TIME_UNSET && player.isCommandAvailable(Player.COMMAND_SET_AUDIO_OFFSET)) player.setAudioOffsetMs(audioOffsetMs);
             if (subtitleOffsets != null && player.isCommandAvailable(Player.COMMAND_SET_TEXT_OFFSET)) {
                 if (manager.supportsSubtitleOffsets()) manager.setSubtitleOffsets(subtitleOffsets);
