@@ -650,7 +650,6 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     private void startPlayerInternal(String key, Result result, boolean useParse, long timeout, long startPositionMs, MediaMetadata metadata) {
         discMenuHeldKeys.clear();
-        attachPlayerView();
         updateNavigationKey(key);
         if (result.needParse() || useParse) player().parse(key, result, useParse, metadata, startPositionMs, endingDurationMs());
         else player().start(PlaySpec.from(result, key, metadata).setEnding(endingDurationMs()), timeout, startPositionMs);
@@ -998,14 +997,19 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
         @Override
         public void onPreloadTransition(Object tag, long oldPositionMs, long oldDurationMs) {
-            if (isNativePlaybackCurrent()) PlaybackActivity.this.onPreloadTransition(tag, oldPositionMs, oldDurationMs);
+            if (!isNativePlaybackCurrent()) return;
+            playbackEndHandled = false;
+            PlaybackActivity.this.onPreloadTransition(tag, oldPositionMs, oldDurationMs);
         }
 
         @Override
         public void onPrepare() {
             if (isNativePlaybackOwner()) {
                 playbackReplaced = false;
+                playbackEndHandled = false;
                 discMenuHeldKeys.clear();
+                attachPlayerView();
+                onVideoSizeChanged(player().getPlayer().getVideoSize());
                 PlaybackActivity.this.onPrepare();
                 if (shouldPausePlayback()) pausePlayback();
             }
@@ -1084,13 +1088,11 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     @Override
     public void onEvents(@NonNull Player player, @NonNull Player.Events events) {
-        if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-            playbackEndHandled = false;
-            if (pendingResume != null && (mService == null || !pendingResume.matches(player().getPlayer()))) pendingResume = null;
-        }
+        if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) && pendingResume != null && (mService == null || !pendingResume.matches(player().getPlayer()))) pendingResume = null;
         if (events.containsAny(Player.EVENT_TIMELINE_CHANGED, Player.EVENT_POSITION_DISCONTINUITY, Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) updateKeyIncrement();
         if (isNativePlaybackCurrent() && events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_DISC_MENU_STATE_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-            boolean ended = player.getPlaybackState() == Player.STATE_ENDED && !player.getDiscMenuState().navigationPlaybackOngoing;
+            Player current = player().getPlayer();
+            boolean ended = current.getPlaybackState() == Player.STATE_ENDED && !current.getDiscMenuState().navigationPlaybackOngoing;
             if (!ended) {
                 playbackEndHandled = false;
             } else if (!playbackEndHandled) {

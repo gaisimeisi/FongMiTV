@@ -165,15 +165,25 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
     public static void cast(Activity activity, History history) {
         history = history.copy();
         history.setVodPic(ImgUtil.cache(history.getVodPic()));
-        Intent intent = new Intent(activity, VideoActivity.class);
-        intent.putExtra("key", history.getSiteKey()).putExtra("id", history.getVodId());
-        intent.putExtra("name", history.getVodName()).putExtra("history", history.toString());
-        putPic(intent, history.getVodPic());
+        Intent intent = createIntent(activity, history.getSiteKey(), history.getVodId(), history.getVodName(), history.getVodPic());
+        intent.putExtra("history", history.toString());
         activity.startActivity(intent);
     }
 
     public static void collect(Activity activity, String key, String id, String name, String pic) {
         start(activity, key, id, name, pic, null, true);
+    }
+
+    public static void collect(Activity activity, String key, Vod item) {
+        Intent intent = createIntent(activity, key, item);
+        intent.putExtra("collect", true);
+        activity.startActivity(intent);
+    }
+
+    public static void start(Activity activity, String key, Vod item, String mark) {
+        Intent intent = createIntent(activity, key, item);
+        intent.putExtra("mark", item.getPlayId().isEmpty() ? mark : null);
+        activity.startActivity(intent);
     }
 
     public static void start(Activity activity, String url) {
@@ -193,14 +203,25 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
     }
 
     public static void start(Activity activity, String key, String id, String name, String pic, String mark, boolean collect) {
-        Intent intent = new Intent(activity, VideoActivity.class);
+        Intent intent = createIntent(activity, key, id, name, pic);
         intent.putExtra("collect", collect);
         intent.putExtra("mark", mark);
+        activity.startActivity(intent);
+    }
+
+    private static Intent createIntent(Activity activity, String key, Vod item) {
+        Intent intent = createIntent(activity, key, item.getId(), item.getName(), item.getPic());
+        intent.putExtra("playId", item.getPlayId());
+        return intent;
+    }
+
+    private static Intent createIntent(Activity activity, String key, String id, String name, String pic) {
+        Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("name", name);
         intent.putExtra("key", key);
         intent.putExtra("id", id);
         putPic(intent, pic);
-        activity.startActivity(intent);
+        return intent;
     }
 
     private static void putPic(Intent intent, String pic) {
@@ -242,8 +263,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
 
     @Override
     public History takeCastHistory() {
-        History history = History.objectFrom(getIntent().getStringExtra("history"));
-        getIntent().removeExtra("history");
+        Intent intent = getIntent();
+        History history = History.objectFrom(intent.getStringExtra("history"));
+        intent.removeExtra("history");
         return history;
     }
 
@@ -307,7 +329,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        if (TextUtils.isEmpty(intent.getStringExtra("id")) || (isSameVideo(intent) && !intent.hasExtra("history"))) return;
+        if (TextUtils.isEmpty(intent.getStringExtra("id")) || (isSameVideo(intent) && !intent.hasExtra("history") && TextUtils.isEmpty(intent.getStringExtra("playId")))) return;
         externalPlaybackCompleted = false;
         mBinding.swipeLayout.setRefreshing(true);
         saveHistory(true);
@@ -432,7 +454,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
             mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         } else {
             mBinding.video.setLayoutParams(mFrameParams);
-            if (!isWebPlaybackActive()) changeHeight(player().getPlayer().getVideoSize());
+            if (isNativePlaybackCurrent()) changeHeight(player().getPlayer().getVideoSize());
         }
     }
 
@@ -511,6 +533,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
     }
 
     @Override
+    public String getVodPlayId() {
+        return Objects.toString(getIntent().getStringExtra("playId"), "");
+    }
+
+    @Override
+    public void clearVodPlayId() {
+        getIntent().removeExtra("playId");
+    }
+
+    @Override
     public boolean isSiteChangeable() {
         return getSite().isChangeable();
     }
@@ -580,6 +612,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         ExternalPlayback.clearOptions(getIntent());
         getIntent().putExtra("key", item.getSiteKey());
         getIntent().putExtra("id", item.getId());
+        getIntent().putExtra("playId", item.getPlayId());
+        if (!item.getPlayId().isEmpty()) getIntent().removeExtra("mark");
         mBinding.swipeLayout.setRefreshing(true);
         mBinding.swipeLayout.setEnabled(false);
         putPic(getIntent(), item.getPic());
@@ -660,7 +694,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
 
     @Override
     public void loadDanmaku(Result result, History history, Episode episode) {
-        VodPlaybackMedia.searchDanmaku(result, history, episode, player()::setDanmaku, player()::addDanmaku);
+        VodPlaybackMedia.searchDanmaku(result, history, episode, () -> isNativePlaybackCurrent() && mVod.isCurrentResult(result), player()::setDanmaku, player()::addDanmaku);
     }
 
     @Override
@@ -1627,7 +1661,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         int viewWidth = Math.min(screenWidth, screenHeight);
         int minHeight = ResUtil.dp2px(150);
         int maxHeight = Math.max(screenWidth, screenHeight) / 2;
-        int calculated = (int) (viewWidth * ((float) videoHeight / videoWidth));
+        float aspectRatio = (videoWidth * size.pixelWidthHeightRatio) / videoHeight;
+        int calculated = (int) (viewWidth / aspectRatio);
         int finalHeight = Math.clamp(calculated, minHeight, Math.max(minHeight, maxHeight));
         if (mAnimator.isRunning()) mAnimator.cancel();
         if (finalHeight == mFrameParams.height) return;
@@ -1942,7 +1977,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, T
         mClock.release();
         saveHistory(true);
         Timer.get().reset();
-        DanmakuApi.cancel();
+        if (isBindingOwner()) DanmakuApi.cancel();
         RefreshEvent.keep();
         App.removeCallbacks(mR1, mR2, mR3, mR4);
         super.onDestroy();

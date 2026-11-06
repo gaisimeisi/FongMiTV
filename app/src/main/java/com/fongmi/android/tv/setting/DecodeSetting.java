@@ -38,16 +38,7 @@ public class DecodeSetting {
     }
 
     public static boolean isAudioPassThrough() {
-        // 音频直通（SPDIF）默认必须关闭。
-        // 打开后 mpv 会把 AC3/EAC3/DTS 原始码流直接丢给 HDMI，车机/电视的功放
-        // 普遍不支持解码这些格式，表现就是「换到 mpv 引擎后完全没声音」。
-        // 旧版本这里默认是 true，且已存进 Prefers，所以做一次性迁移把它重置掉。
-        if (!Prefers.getBoolean("audio_passthrough_migrated", false)) {
-            Prefers.put("decode_audio_pass_through", false);
-            Prefers.put("audio_passthrough_migrated", true);
-            return false;
-        }
-        return Prefers.getBoolean("decode_audio_pass_through", false);
+        return Prefers.getBoolean("decode_audio_pass_through", Prefers.getBoolean("audio_pass_through", true));
     }
 
     public static void putAudioPassThrough(boolean audioPassThrough) {

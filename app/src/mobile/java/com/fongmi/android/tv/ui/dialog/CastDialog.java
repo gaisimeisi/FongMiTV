@@ -115,7 +115,8 @@ public class CastDialog extends DeviceDialog {
     private PlayerManager getSourcePlayer() {
         PlaybackService service = Server.get().getService();
         PlayerManager player = service == null ? null : service.player();
-        return player != null && !player.isReleased() && !player.isEmpty() && video.equals(CastVideo.create(player, video.position())) ? player : null;
+        if (player == null || player.isReleased() || player.isEmpty()) return null;
+        return video.equals(CastVideo.create(player, video.position())) ? player : null;
     }
 
     private Callback getCallback(int id) {
@@ -154,11 +155,16 @@ public class CastDialog extends DeviceDialog {
         };
     }
 
-    private FormBody buildBody() {
-        Bundle args = requireArguments();
-        History history = History.objectFrom(args.getString("history"));
+    private History getCastHistory() {
+        History history = History.objectFrom(requireArguments().getString("history"));
         PlayerManager player = getSourcePlayer();
         if (player != null) history.setPosition(player.getPosition());
+        return history;
+    }
+
+    private FormBody buildBody() {
+        History history = getCastHistory();
+        Bundle args = requireArguments();
         return new FormBody.Builder().add("device", Device.get().toString()).add("config", args.getString("config")).add("history", history.toString()).build();
     }
 
