@@ -108,7 +108,12 @@ public final class ExoUtil {
         // 直通以前默认 true，所以问题一直没暴露。
         // 现在不设置 provider：DefaultAudioSink 默认就走 AudioTrack 输出，
         // 关掉直通后自然不走 SPDIF，正是想要的行为。
-        if (audioProcessor != null) builder.setAudioProcessors(new AudioProcessor[]{audioProcessor});
+        // 只有用户真的开启了音效，才把 processor 挂到音频链路上。
+        // ExoAudioEffectController.getProcessor() 永远返回同一个非 null 实例，
+        // 所以原来这个判断恒为真 —— 即使没开音效，processor 也一直在链路里跑。
+        // 没开音效时直接不进链路，音频数据原样送到 AudioTrack，排除任何潜在的增益/限幅影响。
+        boolean effectOn = com.fongmi.android.tv.setting.AudioSetting.isEnabled();
+        if (audioProcessor != null && effectOn) builder.setAudioProcessors(new AudioProcessor[]{audioProcessor});
         return builder.build();
     }
 
