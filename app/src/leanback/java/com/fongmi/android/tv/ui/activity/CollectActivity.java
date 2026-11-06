@@ -71,6 +71,9 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
         super.onNewIntent(intent);
         getIntent().putExtras(intent);
         reset();
+        // 换关键词重搜：清掉上一次的搜索状态，否则 search() 会因为 searchStarted 直接返回
+        searchStarted = false;
+        searchRetry = 0;
         search();
     }
 
@@ -137,20 +140,35 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
         });
     }
 
-    /** 每个站点回调一次结果 */
+    private boolean refreshPending;
+
+    /** 每个站点回调一次结果（多站并发，刷新要合并） */
     private void onSearchResult(List<Vod> list) {
+        if (list == null || list.isEmpty()) return;
         Collect collect = Collect.create(list);
         mCollects.add(collect);
-        mAdapter.add(collect);
-        // 同步到「全部」
-        String key = collect.getSite().getKey();
+        // 只加数据不刷新：几十个站同时回调时逐个 notify 会撞上 RecyclerView 布局，
+        // 抛 IllegalStateException 把整个页面顶掉（用户看到的就是「搜索时崩掉」）
+        mAdapter.addSilently(collect);
+        String key = collect.getSite() == null ? "" : collect.getSite().getKey();
+        if (key == null) key = "";
         for (Vod vod : list) {
             mAll.add(vod);
             mAllKeys.add(key);
         }
-        // 当前选中的是「全部」时实时刷新右侧；
-        // 原来写成 getItemCount()==1，但上面 add(collect) 已经让数量变成 2，永远不成立 → 右侧一直空白
-        if (mAdapter.getSelected() == 0) showAll();
+        scheduleRefresh();
+    }
+
+    /** 把这一批回调合并成一次刷新，避免与 RecyclerView 布局冲突 */
+    private void scheduleRefresh() {
+        if (refreshPending) return;
+        refreshPending = true;
+        mBinding.siteList.post(() -> {
+            refreshPending = false;
+            if (isFinishing() || isDestroyed()) return;
+            mAdapter.notifyAllChanged();
+            if (mAdapter.getSelected() == 0) showAll();
+        });
     }
 
     private void saveKeyword() {
@@ -165,8 +183,21 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
         mSites = VodConfig.get().getSites().stream().filter(Site::isSearchable).toList();
     }
 
+    private boolean searchStarted;
+    private int searchRetry;
+
     private void search() {
-        if (mSites == null || mSites.isEmpty()) return;
+        if (searchStarted) return;
+        // 直接从通知/外部拉起时，VodConfig 可能还没加载完，站点列表是空的。
+        // 原来这里直接 return，页面就是一片空白，用户得退出重进 —— 这里改成短暂重试。
+        if (mSites == null || mSites.isEmpty()) {
+            setSites();
+            if (mSites == null || mSites.isEmpty()) {
+                if (searchRetry++ < 30) mBinding.siteList.postDelayed(this::search, 100);
+                return;
+            }
+        }
+        searchStarted = true;
         mAdapter.add(Collect.all());
         mBinding.result.setText(getString(R.string.collect_result, getKeyword()));
         mViewModel.searchContent(mSites, getKeyword(), false);

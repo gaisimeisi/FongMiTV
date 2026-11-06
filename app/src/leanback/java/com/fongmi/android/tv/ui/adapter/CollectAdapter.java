@@ -36,6 +36,22 @@ public class CollectAdapter extends RecyclerView.Adapter<CollectAdapter.ViewHold
         notifyItemInserted(mItems.size() - 1);
     }
 
+    /**
+     * 只加数据、不触发刷新。
+     * 搜索是多站并发回调，几十个站几乎同时返回，逐个 notifyItemInserted
+     * 很容易撞上 RecyclerView 正在布局，抛
+     * IllegalStateException: Cannot call this method while RecyclerView is computing a layout。
+     * 由调用方合并成一次刷新。
+     */
+    public void addSilently(Collect item) {
+        mItems.add(item);
+    }
+
+    /** 合并刷新，配合 addSilently 使用 */
+    public void notifyAllChanged() {
+        notifyDataSetChanged();
+    }
+
     public void clear() {
         mItems.clear();
         selected = 0;
