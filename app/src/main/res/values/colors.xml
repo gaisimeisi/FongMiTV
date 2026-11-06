@@ -32,4 +32,5 @@
     <color name="color_focus_tab_view">#d7292b</color>
     <color name="color_focus_poster">#eb641e</color>
     <color name="app_background">#16171A</color>
+    <color name="icon_orange">#FF6F00</color>
 </resources>
