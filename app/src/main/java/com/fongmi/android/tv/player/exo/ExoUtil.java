@@ -102,7 +102,14 @@ public final class ExoUtil {
 
     private static AudioSink buildAudioSink(Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams, @Nullable AudioProcessor audioProcessor) {
         DefaultAudioSink.Builder builder = new DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput).setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams);
-        if (!DecodeSetting.isAudioPassThrough()) builder.setAudioOutputProvider(new AudioTrackAudioOutputProvider.Builder(null).build());
+        // 关闭音频直通时必须显式给出 AudioCapabilities。
+        // 原来传的是 null，AudioTrack 无法确定采样率/声道支持 → 音频轨道建不起来，
+        // 表现是「视频正常播放、播放状态 PLAYING，但 AudioFlinger 一直 Standby，完全没声音」。
+        // 注意：这段只在直通关闭时执行，而直通以前默认是 true，所以这个问题一直没暴露。
+        if (!DecodeSetting.isAudioPassThrough()) {
+            builder.setAudioOutputProvider(new AudioTrackAudioOutputProvider.Builder(
+                    androidx.media3.common.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES).build());
+        }
         if (audioProcessor != null) builder.setAudioProcessors(new AudioProcessor[]{audioProcessor});
         return builder.build();
     }
