@@ -89,7 +89,6 @@ import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
-import com.fongmi.android.tv.utils.TimeFormat;
 import com.fongmi.android.tv.utils.PartUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Sniffer;
@@ -1716,8 +1715,8 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
         long duration = getPlayerDuration();
         long now = player().getPlayer().getCurrentPosition();
         mBinding.widget.gestureSeekIcon.setImageResource(target >= now ? R.drawable.ic_widget_forward : R.drawable.ic_widget_rewind);
-        String text = TimeFormat.format(target);
-        if (duration > 0) text = text + " / " + TimeFormat.format(duration);
+        String text = Util.timeMs(target);
+        if (duration > 0) text = text + " / " + Util.timeMs(duration);
         mBinding.widget.gestureSeekTime.setText(text);
     }
 

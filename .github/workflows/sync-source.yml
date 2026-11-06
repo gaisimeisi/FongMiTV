@@ -92,6 +92,10 @@ jobs:
             --exclude='app/src/main/res/values/attrs.xml' \
             --exclude='app/src/main/java/com/fongmi/android/tv/ui/custom/BaseInput.java' \
             --exclude='app/src/main/java/com/fongmi/android/tv/api/SiteApi.java' \
+            --exclude='app/src/main/java/com/fongmi/android/tv/player/exo/ExoUtil.java' \
+            --exclude='app/src/main/java/com/fongmi/android/tv/player/mpv/MpvUtil.java' \
+            --exclude='app/src/main/java/com/fongmi/android/tv/ui/dialog/VideoSettingPanel.java' \
+            --exclude='app/src/main/java/com/fongmi/android/tv/ui/dialog/MpvMotionSettingPanel.java' \
             --exclude='app/src/main/res/drawable/ic_launcher_foreground.xml' \
             --exclude='app/src/main/res/drawable/ic_splash_logo.xml' \
             --exclude='app/src/main/res/drawable-v31/ic_splash_logo_animated.xml' \

@@ -42,18 +42,15 @@ final class VideoSettingPanel {
 
     private final DialogVideoSettingBinding binding;
     private final PlayerManager player;
-    private final MpvMotionSettingPanel motionPanel;
     private int currentTab;
     private boolean previewOriginal;
 
     VideoSettingPanel(DialogVideoSettingBinding binding, PlayerManager player) {
         this.binding = binding;
         this.player = player;
-        this.motionPanel = new MpvMotionSettingPanel(binding.mpvMotion, player.getPlayer());
     }
 
     void bind() {
-        motionPanel.bind();
         updatePresetCheck();
         bindSliders();
         SettingPanelViews.bindTabs(binding.tabGroup, getTabs(), this::showTab);
@@ -65,7 +62,6 @@ final class VideoSettingPanel {
     }
 
     void release() {
-        motionPanel.release();
         binding.tabGroup.clearOnButtonCheckedListeners();
         previewOriginal(false);
     }
