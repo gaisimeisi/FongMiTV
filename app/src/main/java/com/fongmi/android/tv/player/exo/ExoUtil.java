@@ -102,14 +102,12 @@ public final class ExoUtil {
 
     private static AudioSink buildAudioSink(Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams, @Nullable AudioProcessor audioProcessor) {
         DefaultAudioSink.Builder builder = new DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput).setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams);
-        // 关闭音频直通时必须显式给出 AudioCapabilities。
-        // 原来传的是 null，AudioTrack 无法确定采样率/声道支持 → 音频轨道建不起来，
-        // 表现是「视频正常播放、播放状态 PLAYING，但 AudioFlinger 一直 Standby，完全没声音」。
-        // 注意：这段只在直通关闭时执行，而直通以前默认是 true，所以这个问题一直没暴露。
-        if (!DecodeSetting.isAudioPassThrough()) {
-            builder.setAudioOutputProvider(new AudioTrackAudioOutputProvider.Builder(
-                    androidx.media3.common.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES).build());
-        }
+        // 原代码：if (!isAudioPassThrough()) builder.setAudioOutputProvider(new AudioTrackAudioOutputProvider.Builder(null).build());
+        // 传 null 会让 AudioTrack 建不起来 —— 视频照播、播放状态 PLAYING，
+        // 而 AudioFlinger 一直 Standby，完全没声音。而且这段只在「直通关闭」时执行，
+        // 直通以前默认 true，所以问题一直没暴露。
+        // 现在不设置 provider：DefaultAudioSink 默认就走 AudioTrack 输出，
+        // 关掉直通后自然不走 SPDIF，正是想要的行为。
         if (audioProcessor != null) builder.setAudioProcessors(new AudioProcessor[]{audioProcessor});
         return builder.build();
     }
