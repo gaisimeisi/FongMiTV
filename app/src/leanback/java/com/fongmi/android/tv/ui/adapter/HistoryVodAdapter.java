@@ -27,8 +27,10 @@ public class HistoryVodAdapter extends RecyclerView.Adapter<HistoryVodAdapter.Ho
     private static final float FOCUS_SCALE = 1.08f;
 
     private final List<History> items = new ArrayList<>();
+    private final java.util.Set<String> selected = new java.util.HashSet<>();
     private final OnItemListener listener;
     private int[] size;
+    private boolean editing;
 
     public HistoryVodAdapter(OnItemListener listener) {
         this.listener = listener;
@@ -43,6 +45,36 @@ public class HistoryVodAdapter extends RecyclerView.Adapter<HistoryVodAdapter.Ho
         items.clear();
         if (list != null) items.addAll(list);
         notifyDataSetChanged();
+    }
+
+    public List<History> getItems() {
+        return items;
+    }
+
+    /** 进入/退出多选模式，进入时清空已选 */
+    public void setEditing(boolean editing) {
+        this.editing = editing;
+        this.selected.clear();
+        notifyDataSetChanged();
+    }
+
+    public boolean isEditing() {
+        return editing;
+    }
+
+    /** 切换某一条的选中状态，返回切换后是否被选中 */
+    public boolean toggleSelect(History item) {
+        String key = item.getKey();
+        boolean added;
+        if (selected.contains(key)) {
+            selected.remove(key);
+            added = false;
+        } else {
+            selected.add(key);
+            added = true;
+        }
+        notifyDataSetChanged();
+        return added;
     }
 
     public void clear() {
@@ -74,6 +106,11 @@ public class HistoryVodAdapter extends RecyclerView.Adapter<HistoryVodAdapter.Ho
             ip.height = size[1];
             holder.binding.image.setLayoutParams(ip);
         }
+        // 多选态：选中的卡片压暗 + 青绿描边
+        holder.binding.getRoot().setForeground(
+                editing && selected.contains(items.get(position).getKey())
+                        ? holder.binding.getRoot().getContext().getDrawable(R.drawable.shape_vod_selected)
+                        : null);
         holder.binding.getRoot().setOnFocusChangeListener((v, hasFocus) -> {
             float s = hasFocus ? FOCUS_SCALE : 1f;
             v.animate().scaleX(s).scaleY(s).setDuration(160).start();
