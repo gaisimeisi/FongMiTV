@@ -424,6 +424,16 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
     }
 
     @Override
+    public String getVodPlayId() {
+        return java.util.Objects.toString(getIntent().getStringExtra("playId"), "");
+    }
+
+    @Override
+    public void clearVodPlayId() {
+        getIntent().removeExtra("playId");
+    }
+
+    @Override
     public void setVodId(String id) {
         String oldKey = getHistoryKey();
         boolean owned = isPlaybackCurrent();
@@ -591,7 +601,11 @@ public class VideoActivity extends PlaybackActivity implements VodPlaybackHost, 
 
     @Override
     public void loadDanmaku(Result result, History history, Episode episode) {
-        VodPlaybackMedia.searchDanmaku(result, history, episode, player()::setDanmaku, player()::addDanmaku);
+        // 上游 5.8.7 给 searchDanmaku 加了 isCurrent 判断：
+        // 弹幕是异步返回的，回来时可能已经切到别的剧/集，需要用这个标记过滤掉过期结果。
+        VodPlaybackMedia.searchDanmaku(result, history, episode,
+                () -> isPlaybackCurrent() && mVod != null && mVod.isCurrentResult(result),
+                player()::setDanmaku, player()::addDanmaku);
     }
 
     @Override
