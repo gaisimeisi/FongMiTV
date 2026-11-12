@@ -84,11 +84,7 @@ public class PlayerSetting {
     }
 
     public static int getMpvMotionFps() {
-        return switch (getMpvMotion()) {
-            case 1 -> 60;
-            case 2 -> 120;
-            default -> 0;
-        };
+        return getMotionFps(getMpvMotion());
     }
 
     public static int getExoMotion() {
@@ -100,7 +96,11 @@ public class PlayerSetting {
     }
 
     public static int getExoMotionFps() {
-        return switch (getExoMotion()) {
+        return getMotionFps(getExoMotion());
+    }
+
+    private static int getMotionFps(int motion) {
+        return switch (motion) {
             case 1 -> 60;
             case 2 -> 120;
             default -> 0;
