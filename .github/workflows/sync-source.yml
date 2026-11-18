@@ -26,8 +26,11 @@ on:
         type: boolean
         required: false
         default: true
-  schedule:
-    - cron: '0 17 * * *'
+  # 自动同步已停用：上游 5.8.8 依赖新版 media3（含 androidx.media3.decoder.ffmpeg），
+  # app/libs 里的 aar 仍是 release-1.11.0-fongmi 那批，同步后必然编译失败。
+  # 需要跟进上游时手动触发，并先补齐对应版本的 aar。
+  # schedule:
+  #   - cron: '0 17 * * *'
 
 permissions:
   contents: write
